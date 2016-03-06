@@ -1,0 +1,63 @@
+#*** Traffic Classification Engine Config for nmeta
+#*** Written in YAML
+#
+#========== nmeta Controller ========================
+nmeta_controller_address: http://172.16.0.3
+nmeta_controller_port: 8080
+nmeta_api_path: nmeta/v2/aux/
+#
+#========== SYSLOG ==================================
+#*** Set to 1 if want to log to syslog:
+syslog_enabled: 1
+#
+#*** Where to send syslog (use localhost to keep on-box):
+loghost: localhost
+#
+#*** Port number to send on:
+logport: 514
+#
+#*** Facility to use:
+logfacility: 19
+#
+#*** Syslog Log Format:
+syslog_format: "sev=%(levelname)s module=%(name)s func=%(funcName)s %(message)s"
+#
+#*** Syslog Logging Levels Per Module
+#*** Values can be one of CRITICAL|ERROR|WARNING|INFO|DEBUG:
+nmeta_dpae_logging_level_s: DEBUG
+sniff_logging_level_s: DEBUG
+controlplane_logging_level_s: DEBUG
+tc_logging_level_s: DEBUG
+#
+#========== CONSOLE LOGGING =========================
+#*** Set to 1 if want to log to console:
+console_log_enabled: 1
+#
+#*** Console Log Format:
+#console_format: "%(levelname)s: %(name)s %(funcName)s: %(message)s"
+console_format: "%(levelname)s: %(name)s pid=%(process)d %(funcName)s: %(message)s"
+#
+#*** Console Logging Levels Per Module
+#*** Values can be one of CRITICAL|ERROR|WARNING|INFO|DEBUG:
+nmeta_dpae_logging_level_c: DEBUG
+sniff_logging_level_c: DEBUG
+controlplane_logging_level_c: DEBUG
+tc_logging_level_c: DEBUG
+requests_logging_level: CRITICAL
+#
+#========== SNIFFING CONFIG =========================
+#*** Interface names to sniff on (comma separated, no spaces)
+#sniff_if_names: eth1,eth2
+sniff_if_names: eth1
+#
+#========== KEEPALIVE BETWEEN DPAE and CONTROLLER ===
+#*** Interval between keepalive tests in seconds (float):
+keepalive_interval: 1
+#*** Number of concurrent retries before marking controller
+#***  as down and restarting negotiations (integer):
+keepalive_retries: 3
+#
+#========== Mongodb Database ==========================
+mongo_addr: localhost
+mongo_port: 27017
+#
