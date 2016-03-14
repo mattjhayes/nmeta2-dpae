@@ -140,67 +140,21 @@ class TC(object):
                                         udp_dst)
         #*** Check for Identity Indicators:
         if udp:
-            self.logger.debug("there...")
             if udp_src == 53 or udp_dst == 53:
-                if self.id_dns:
-                    #*** DNS:
-                    self.logger.debug("Is it DNS?")
-                    dns = dpkt.dns.DNS(udp.data)
-                    self.logger.debug("DNS details are %s", dns)
-                    result = {'type': 'id', 'subtype': 'dns',
-                                            'src_mac': eth_src,
-                                            'detail1': dns}
-                    return result
-                else:
-                    return 0
+                #*** DNS:
+                return self._parse_dns(udp.data, eth_src)
 
             elif udp_src == 67 or udp_dst == 67:
-                dhcp = dpkt.dhcp.DHCP(udp.data)
-                if self.id_dhcp and dhcp:
-                    #*** DHCP:
-                    self.logger.debug("DHCP details are %s", dhcp)
-                    result = {'type': 'id', 'subtype': 'dhcp',
-                                            'src_mac': eth_src,
-                                            'detail1': dhcp}
-                    return result
-                else:
-                    return 0
+                #*** DHCP:
+                return self._parse_dhcp(udp.data, eth_src)
 
         if eth_type == 35020:
-            if self.id_lldp:
-                #*** LLDP?, try a decode:
-                self.logger.debug("Is it LLDP?")
-                payload = pkt[14:]
-                system_name, port_id = self.parse_lldp(payload)
-                self.logger.debug("LLDP MAC=%s system_name=%s port_id=%s",
-                                    mac_addr(eth.src), system_name, port_id)
-                result = {'type': 'id', 'subtype': 'lldp',
-                                    'src_mac': eth_src,
-                                    'detail1': system_name}
-                return result
-            else:
-                return 0
+            #*** LLDP:
+            return self._parse_lldp(pkt, eth_src)
 
         if eth_type == 2054:
-            if self.id_arp:
-                #*** ARP:
-                self.logger.debug("Is it ARP?")
-                arp = eth.arp
-                if arp:
-                    #*** Build a CSV string of spa,sha,tpa,tha:
-                    arp_details = socket.inet_ntoa(arp.spa)
-                    arp_details += "," + mac_addr(arp.sha)
-                    arp_details += "," + socket.inet_ntoa(arp.tpa)
-                    arp_details += "," + mac_addr(arp.sha)
-                    self.logger.debug("ARP details are %s", arp_details)
-                    result = {'type': 'id', 'subtype': 'arp',
-                                    'src_mac': eth_src,
-                                    'detail1': arp_details}
-                    return result
-                else:
-                    return 0
-            else:
-                return 0
+            #*** ARP:
+            return self._parse_arp(eth, eth_src)
 
         #============= FCIP UNDER DEVELOPMENT ================
         #*** Add to FCIP table?
@@ -222,7 +176,78 @@ class TC(object):
         self.logger.debug("Unknown packet, type=%s", eth.type)
         return result
 
-    def parse_lldp(self, lldpPayload):
+    def _parse_dns(self, udp_data, eth_src):
+        """
+        Check if packet is DNS, and if so return the details
+        """
+        if self.id_dns:
+            #*** DNS:
+            self.logger.debug("Is it DNS?")
+            dns = dpkt.dns.DNS(udp_data)
+            self.logger.debug("DNS details are %s", dns)
+            result = {'type': 'id', 'subtype': 'dns', 'src_mac': eth_src,
+                                                'detail1': dns}
+            return result
+        else:
+            return 0
+
+    def _parse_dhcp(self, udp_data, eth_src):
+        """
+        Check if packet is DHCP, and if so return the details
+        """
+        dhcp = dpkt.dhcp.DHCP(udp_data)
+        if self.id_dhcp and dhcp:
+            #*** DHCP:
+            self.logger.debug("DHCP details are %s", dhcp)
+            result = {'type': 'id', 'subtype': 'dhcp', 'src_mac': eth_src,
+                                                'detail1': dhcp}
+            return result
+        else:
+            return 0
+
+    def _parse_arp(self, eth, eth_src):
+        """
+        Check if packet is ARP, and if so return the details
+        """
+        if self.id_arp:
+            #*** ARP:
+            self.logger.debug("Is it ARP?")
+            arp = eth.arp
+            if arp:
+                #*** Build a CSV string of spa,sha,tpa,tha:
+                arp_details = socket.inet_ntoa(arp.spa)
+                arp_details += "," + mac_addr(arp.sha)
+                arp_details += "," + socket.inet_ntoa(arp.tpa)
+                arp_details += "," + mac_addr(arp.sha)
+                self.logger.debug("ARP details are %s", arp_details)
+                result = {'type': 'id', 'subtype': 'arp',
+                                    'src_mac': eth_src,
+                                    'detail1': arp_details}
+                return result
+            else:
+                return 0
+        else:
+            return 0
+
+    def _parse_lldp(self, pkt, eth_src):
+        """
+        Check if packet is LLDP, and if so return the details
+        """
+        if self.id_lldp:
+            #*** LLDP?, try a decode:
+            self.logger.debug("Is it LLDP?")
+            payload = pkt[14:]
+            system_name, port_id = self._parse_lldp_detail(payload)
+            self.logger.debug("LLDP MAC=%s system_name=%s port_id=%s",
+                                    eth_src, system_name, port_id)
+            result = {'type': 'id', 'subtype': 'lldp',
+                                    'src_mac': eth_src,
+                                    'detail1': system_name}
+            return result
+        else:
+            return 0
+
+    def _parse_lldp_detail(self, lldpPayload):
         """
         Parse basic LLDP parameters from an LLDP packet payload.
         Based on github code by GoozeyX
