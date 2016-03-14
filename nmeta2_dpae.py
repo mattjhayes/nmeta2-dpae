@@ -109,9 +109,6 @@ class DPAE(object):
         #*** Instantiate TC Policy class:
         self.tc_policy = tc_policy_dpae.TCPolicy(self.config)
 
-        #*** Instantiate TC Classification class:
-        self.tc = tc.TC(self.config)
-
         #*** Instantiate Sniff Class:
         self.sniff = sniff.Sniff(self, self.config)
 
@@ -129,6 +126,10 @@ class DPAE(object):
         #*** Instantiate Control Channel Class:
         self.controlchannel = controlchannel.ControlChannel(self, self.config,
                                     if_name, self.sniff)
+
+        #*** Instantiate TC Classification class:
+        self.tc = tc.TC(self.config)
+
         finished = 0
         while not finished:
             #*** Start Phase 1 connection to the controller:

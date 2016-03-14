@@ -114,7 +114,7 @@ class TC(object):
         tcp = 0
         #*** Read into dpkt:
         eth = dpkt.ethernet.Ethernet(pkt)
-        #*** Set local variables for efficient access:
+        #*** Set local variables for efficient access, speed is critical...
         eth_src = mac_addr(eth.src)
         eth_dst = mac_addr(eth.dst)
         eth_type = eth.type
@@ -158,14 +158,23 @@ class TC(object):
 
         #============= FCIP UNDER DEVELOPMENT ================
         #*** Add to FCIP table?
-        #*** Check to see if we already know this identity:
-        #if tcp:
-        #    db_data = {'ip_A': ip_src, 'ip_B': ip_dst,
-        #                'port_A': tcp_src, 'port_B': tcp_dst,
-        #                'proto': 'tcp'}
-        #    db_result = self.fcip.find_one(db_data)
-        #*** TBD, check for src/dst transposed too
-        #*** Fix warning: 'UserWarning: MongoClient opened before fork. Create MongoClient with connect=False, or create client after forking. See PyMongo's documentation for details: http://api.mongodb.org/python/current/faq.html#using-pymongo-with-multiprocessing'
+        if tcp:
+            #*** Check to see if we already know this identity:
+            db_data = {'ip_A': ip_src, 'ip_B': ip_dst,
+                        'port_A': tcp_src, 'port_B': tcp_dst,
+                        'proto': 'tcp'}
+            db_result = self.fcip.find_one(db_data)
+            if not db_result:
+                #*** Check source/destination transposed:
+                db_data = {'ip_A': ip_dst, 'ip_B': ip_src,
+                        'port_A': tcp_dst, 'port_B': tcp_src,
+                        'proto': 'tcp'}
+                db_result = self.fcip.find_one(db_data)
+            if not db_result:
+                #*** Neither direction found, so add to FCIP:
+                self.logger.debug("FCIP: Adding record for %s to DB", db_data)
+                db_result = self.fcip.insert_one(db_data)
+
 
         #*** Check to see if we have any traffic classifiers to run:
         for tc_type, tc_name in self.classifiers:
