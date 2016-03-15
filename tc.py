@@ -39,6 +39,9 @@ import dpkt
 #*** mongodb Database Import:
 from pymongo import MongoClient
 
+#*** For hashing flow 5-tuples:
+import hashlib
+
 class TC(object):
     """
     This class is instantiated by nmeta2_dpae.py and provides methods
@@ -159,21 +162,22 @@ class TC(object):
         #============= FCIP UNDER DEVELOPMENT ================
         #*** Add to FCIP table?
         if tcp:
+            #*** Generate a hash unique to flow for packets in either direction
+            fcip_hash = hash_5tuple(ip_src, ip_dst, tcp_src, tcp_dst, 'tcp')
+            self.logger.debug("FCIP hash=%s", fcip_hash)
             #*** Check to see if we already know this identity:
-            db_data = {'ip_A': ip_src, 'ip_B': ip_dst,
-                        'port_A': tcp_src, 'port_B': tcp_dst,
-                        'proto': 'tcp'}
+            db_data = {'hash': fcip_hash}
             db_result = self.fcip.find_one(db_data)
             if not db_result:
-                #*** Check source/destination transposed:
-                db_data = {'ip_A': ip_dst, 'ip_B': ip_src,
-                        'port_A': tcp_dst, 'port_B': tcp_src,
-                        'proto': 'tcp'}
-                db_result = self.fcip.find_one(db_data)
-            if not db_result:
                 #*** Neither direction found, so add to FCIP:
-                self.logger.debug("FCIP: Adding record for %s to DB", db_data)
-                db_result = self.fcip.insert_one(db_data)
+                db_data_full = {'hash': fcip_hash, 'ip_A': ip_src,
+                        'ip_B': ip_dst, 'port_A': tcp_src, 'port_B': tcp_dst,
+                        'proto': 'tcp'}
+                self.logger.debug("FCIP: Adding record for %s to DB",
+                                                    db_data_full)
+                db_result = self.fcip.insert_one(db_data_full)
+            else:
+                self.logger.debug("FCIP: found existing record")
 
 
         #*** Check to see if we have any traffic classifiers to run:
@@ -298,6 +302,30 @@ class TC(object):
             lldpPayload = lldpPayload[2 + tlv_len:]
 
         return (system_name, port_id)
+
+def hash_5tuple(ip_A, ip_B, tp_src, tp_dst, proto):
+    """
+    Generate a predictable hash for the 5-tuple which is the
+    same not matter which direction the traffic is travelling
+    """
+    if ip_A > ip_B:
+        direction = 1
+    elif ip_B > ip_A:
+        direction = 2
+    elif tp_src > tp_dst:
+        direction = 1
+    elif tp_dst > tp_src:
+        direction = 2
+    else:
+        direction = 1
+    hash = hashlib.md5()
+    if direction == 1:
+        flow_tuple = (ip_A, ip_B, tp_src, tp_dst, proto)
+    else:
+        flow_tuple = (ip_B, ip_A, tp_dst, tp_src, proto)
+    flow_tuple_as_string = str(flow_tuple)
+    hash.update(flow_tuple_as_string)
+    return hash.hexdigest()
 
 def mac_addr(address):
     """
