@@ -42,6 +42,9 @@ from pymongo import MongoClient
 #*** For hashing flow 5-tuples:
 import hashlib
 
+#*** For performance tuning timing:
+import time
+
 class TC(object):
     """
     This class is instantiated by nmeta2_dpae.py and provides methods
@@ -105,6 +108,13 @@ class TC(object):
         db_fcip = mongo_client.fcip_database
         self.fcip = db_fcip.fcip
 
+        #*** DPAE database - delete all previous entries:
+        result = self.fcip.delete_many({})
+        self.logger.info("Initialising FCIP database, Deleted %s previous "
+                "entries from dbdpae", result.deleted_count)
+
+        #*** Database index for performance:
+        self.fcip.create_index([("hash", 1)])
 
     def classify_dpkt(self, pkt, if_name):
         """
@@ -164,7 +174,7 @@ class TC(object):
         if tcp:
             #*** Generate a hash unique to flow for packets in either direction
             fcip_hash = hash_5tuple(ip_src, ip_dst, tcp_src, tcp_dst, 'tcp')
-            self.logger.debug("FCIP hash=%s", fcip_hash)
+            #self.logger.debug("FCIP hash=%s", fcip_hash)
             #*** Check to see if we already know this identity:
             db_data = {'hash': fcip_hash}
             db_result = self.fcip.find_one(db_data)
@@ -173,12 +183,12 @@ class TC(object):
                 db_data_full = {'hash': fcip_hash, 'ip_A': ip_src,
                         'ip_B': ip_dst, 'port_A': tcp_src, 'port_B': tcp_dst,
                         'proto': 'tcp'}
-                self.logger.debug("FCIP: Adding record for %s to DB",
-                                                    db_data_full)
+                #self.logger.debug("FCIP: Adding record for %s to DB",
+                #                                    db_data_full)
                 db_result = self.fcip.insert_one(db_data_full)
             else:
                 self.logger.debug("FCIP: found existing record")
-
+            
 
         #*** Check to see if we have any traffic classifiers to run:
         for tc_type, tc_name in self.classifiers:
