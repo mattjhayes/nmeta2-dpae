@@ -112,34 +112,16 @@ class Sniff(object):
             pkt, sa_ll = mysock.recvfrom(MTU)
             #*** Ignore outgoing packets:
             pkt_type = sa_ll[2]
+            
             if pkt_type == socket.PACKET_OUTGOING:
                 continue
+
+            #*** Record the time (would be better if was actual receive time)
+            pkt_receive_timestamp = time.time()
+            pkt_tuple = (pkt, pkt_receive_timestamp)
+
             #*** Send result in queue back to the parent process:
-            queue.put(pkt)
-
-            #eth_header = struct.unpack("!6s6sH", pkt[0:14])
-            #print "eth_header[2] is", eth_header[2]
-
-            #*** Read into Scapy:
-            #scapy_pkt = Ether(pkt)
-            #scapy_pkt.show2()
-            #print "Ethertype is", hex(scapy_pkt.type), scapy_pkt.type
-            #if scapy_pkt.type == 2048:
-            #    print "It's an IPv4 packet"
-            #    print "IP source", scapy_pkt[IP].src, "IP dest", \
-            #    scapy_pkt[IP].dst
-            #elif scapy_pkt.type == 35020:
-                #*** LLDP:
-                #print "matched LLDP"
-                #payload = pkt[14:]
-                #print "payload is", payload
-                #vlan_id, switch_name, port_desc, eth_port_id = \
-                 #                   self.parse_lldp(payload)
-                #print "got vlan_id=", vlan_id, "switch_name=", switch_name, \
-                 #      "port_desc=", port_desc, "eth_port_id=", eth_port_id
-                #continue
-            #else:
-                #print "*** Other Ethernet type ***"
+            queue.put(pkt_tuple)
 
     def discover_confirm(self, queue, if_name, dpae2ctrl_mac, ctrl2dpae_mac,
                         dpae_ethertype, timeout, uuid_dpae, uuid_controller):

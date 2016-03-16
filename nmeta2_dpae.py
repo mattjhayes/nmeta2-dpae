@@ -311,9 +311,10 @@ class DPAE(object):
             if not sniff_queue.empty():
                 self.logger.debug("Reading packet off queue from child "
                                     "sniff process...")
-                pkt = sniff_queue.get()
+                pkt, pkt_receive_timestamp = sniff_queue.get()
                 #*** Send packet to tc for classification:
-                tc_result = self.tc.classify_dpkt(pkt, if_name)
+                tc_result = self.tc.classify_dpkt(pkt, pkt_receive_timestamp,
+                                                            if_name)
                 if tc_result:
                     #*** Send via API to controller:
                     controlchannel.tc_advise_controller(location_tc_classify,

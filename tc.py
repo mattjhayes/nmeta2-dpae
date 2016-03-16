@@ -116,7 +116,7 @@ class TC(object):
         #*** Database index for performance:
         self.fcip.create_index([("hash", 1)])
 
-    def classify_dpkt(self, pkt, if_name):
+    def classify_dpkt(self, pkt, pkt_receive_timestamp, if_name):
         """
         Perform traffic classification on a packet
         using dpkt for packet parsing
