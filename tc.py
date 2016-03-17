@@ -154,12 +154,17 @@ class TC(object):
         #*** Check for Identity Indicators:
         if udp:
             if udp_src == 53 or udp_dst == 53:
-                #*** DNS:
+                #*** DNS (UDP):
                 return self._parse_dns(udp.data, eth_src)
 
             elif udp_src == 67 or udp_dst == 67:
                 #*** DHCP:
                 return self._parse_dhcp(udp.data, eth_src)
+
+        if tcp:
+            if tcp_src == 53 or tcp_dst == 53:
+                #*** DNS (TCP):
+                return self._parse_dns(tcp.data, eth_src)
 
         if eth_type == 35020:
             #*** LLDP:
@@ -188,7 +193,7 @@ class TC(object):
                 db_result = self.fcip.insert_one(db_data_full)
             else:
                 self.logger.debug("FCIP: found existing record")
-            
+
 
         #*** Check to see if we have any traffic classifiers to run:
         for tc_type, tc_name in self.classifiers:
@@ -199,17 +204,54 @@ class TC(object):
         self.logger.debug("Unknown packet, type=%s", eth.type)
         return result
 
-    def _parse_dns(self, udp_data, eth_src):
+    def _parse_dns(self, dns_data, eth_src):
         """
-        Check if packet is DNS, and if so return the details
+        Check if packet is DNS, and if so return a list
+        of answers (if exist), with each list item a dict
+        of type/name/address/ttl
         """
         if self.id_dns:
             #*** DNS:
             self.logger.debug("Is it DNS?")
-            dns = dpkt.dns.DNS(udp_data)
-            self.logger.debug("DNS details are %s", dns)
-            result = {'type': 'id', 'subtype': 'dns', 'src_mac': eth_src,
-                                                'detail1': dns}
+            dns = dpkt.dns.DNS(dns_data)
+            queries = dns.qd
+            answers = dns.an
+            detail1 = []
+            for answer in answers:
+                if answer.type == 1:
+                    #*** DNS A Record:
+                    answer_ip = socket.inet_ntoa(answer.rdata)
+                    answer_name = answer.name
+                    answer_ttl = answer.ttl
+                    self.logger.debug("dns_answer_name=%s dns_answer_A=%s "
+                                "answer_ttl=%s",
+                                answer_name, answer_ip, answer_ttl)
+                    record = {'type': 'A',
+                                'name': answer_name,
+                                'address': answer_ip,
+                                'ttl': answer_ttl}
+                    detail1.append(record)
+                elif answer.type == 5:
+                    #*** DNS CNAME Record:
+                    answer_cname = answer.cname
+                    answer_name = answer.name
+                    self.logger.debug("dns_answer_name=%s dns_answer_CNAME=%s",
+                                "answer_ttl=%s",
+                                answer_name, answer_cname, answer_ttl)
+                    record = {'type': 'CNAME',
+                                'name': answer_name,
+                                'address': answer_cname,
+                                'ttl': answer_ttl}
+                    detail1.append(record)
+                else:
+                    #*** Not a type that we handle yet
+                    pass
+            if len(detail1) > 0:
+                result = {'type': 'id', 'subtype': 'dns', 'src_mac': eth_src,
+                                                'detail1': detail1}
+            else:
+                result = 0
+            self.logger.debug("DNS result=%s", result)
             return result
         else:
             return 0
@@ -328,14 +370,14 @@ def hash_5tuple(ip_A, ip_B, tp_src, tp_dst, proto):
         direction = 2
     else:
         direction = 1
-    hash = hashlib.md5()
+    hash_5t = hashlib.md5()
     if direction == 1:
         flow_tuple = (ip_A, ip_B, tp_src, tp_dst, proto)
     else:
         flow_tuple = (ip_B, ip_A, tp_dst, tp_src, proto)
     flow_tuple_as_string = str(flow_tuple)
-    hash.update(flow_tuple_as_string)
-    return hash.hexdigest()
+    hash_5t.update(flow_tuple_as_string)
+    return hash_5t.hexdigest()
 
 def mac_addr(address):
     """
