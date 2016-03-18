@@ -174,32 +174,16 @@ class TC(object):
             #*** ARP:
             return self._parse_arp(eth, eth_src)
 
-        #============= FCIP UNDER DEVELOPMENT ================
-        #*** Add to FCIP table?
         if tcp:
-            #*** Generate a hash unique to flow for packets in either direction
-            fcip_hash = hash_5tuple(ip_src, ip_dst, tcp_src, tcp_dst, 'tcp')
-            #self.logger.debug("FCIP hash=%s", fcip_hash)
-            #*** Check to see if we already know this identity:
-            db_data = {'hash': fcip_hash}
-            db_result = self.fcip.find_one(db_data)
-            if not db_result:
-                #*** Neither direction found, so add to FCIP:
-                db_data_full = {'hash': fcip_hash, 'ip_A': ip_src,
-                        'ip_B': ip_dst, 'port_A': tcp_src, 'port_B': tcp_dst,
-                        'proto': 'tcp'}
-                #self.logger.debug("FCIP: Adding record for %s to DB",
-                #                                    db_data_full)
-                db_result = self.fcip.insert_one(db_data_full)
-            else:
-                self.logger.debug("FCIP: found existing record")
-
+            #*** Create a flow object for classifiers to work with:
+            flow = Flow(self.fcip, self.logger)
+            flow.ingest_packet(pkt)
 
         #*** Check to see if we have any traffic classifiers to run:
         for tc_type, tc_name in self.classifiers:
             self.logger.debug("Checking packet against tc_type=%s tc_name=%s",
                                     tc_type, tc_name)
-            #*** TBD, do something here...
+            #*** TBD, do something here, pass it the flow object...
 
         self.logger.debug("Unknown packet, type=%s", eth.type)
         return result
@@ -354,6 +338,102 @@ class TC(object):
             lldpPayload = lldpPayload[2 + tlv_len:]
 
         return (system_name, port_id)
+
+class Flow(object):
+    """
+    An object that represents a flow that we are classifying
+
+    Intended to provide an abstraction of a flow that classifiers
+    can use to make determinations without having to understand
+    implementations such as database lookups etc.
+
+    Variables Exposed for Classifiers (assumes class instantiated as
+    an object called 'flow'):
+        flow.finalised      # A classification has been made
+        flow.packet_count   # Unique packets registered for the flow
+        ip_src              # IP source address of latest packet in flow
+        ip_dst              # IP dest address of latest packet in flow
+        tcp_src             # TCP source port of latest packet in flow
+        tcp_dst             # TCP dest port of latest packet in flow
+
+    Challenges:
+     - duplicate packets
+     - IP fragments (not handled)
+     - Flow reuse (not handled - yet)
+    """
+    def __init__(self, fcip, logger):
+        """
+        Initialise an instance of the Flow class for a new
+        flow. Passed layer 3/4 parameters.
+        Add an entry to the FCIP database if it doesn't
+        already exist. If it does exist, update it.
+        Only works for TCP at this stage.
+        """
+        self.fcip = fcip
+        self.logger = logger
+        #*** Maximum packets in a flow before finalising:
+        self.max_packet_count = 10
+        #*** Initialise flow variables:
+        self.finalised = 0
+        self.packet_count = 0
+        self.fcip_doc = {}
+        self.fcip_hash = 0
+
+    def ingest_packet(self, pkt):
+        """
+        Ingest a packet and put the flow object into the context
+        of the flow that the packet belongs to.
+        """
+        #*** Read into dpkt:
+        eth = dpkt.ethernet.Ethernet(pkt)
+        eth_src = mac_addr(eth.src)
+        eth_dst = mac_addr(eth.dst)
+        eth_type = eth.type
+        #*** We only support IPv4 (TBD: add IPv6 support):
+        if eth_type != 2048:
+            self.logger.error("Non IPv4 packet, eth_type is %s", eth_type)
+            return 0
+        ip = eth.data
+        ip_src = socket.inet_ntop(socket.AF_INET, ip.src)
+        ip_dst = socket.inet_ntop(socket.AF_INET, ip.dst)
+        #*** We only support TCP:
+        if ip.p != 6:
+            self.logger.error("Non TCP packet, ip_proto=%s",
+                                        ip.p)
+            return 0
+        proto = 'tcp'
+        tcp = ip.data
+        tcp_src = tcp.sport
+        tcp_dst = tcp.dport
+        #*** Generate a hash unique to flow for packets in either direction
+        self.fcip_hash = hash_5tuple(ip_src, ip_dst, tcp_src, tcp_dst, proto)
+        self.logger.debug("FCIP hash=%s", self.fcip_hash)
+        #*** Check to see if we already know this identity:
+        db_data = {'hash': self.fcip_hash}
+        self.fcip_doc = self.fcip.find_one(db_data)
+        if not self.fcip_doc:
+            #*** Neither direction found, so add to FCIP database:
+            db_data_full = {'hash': self.fcip_hash, 'ip_A': ip_src,
+                        'ip_B': ip_dst, 'port_A': tcp_src, 'port_B': tcp_dst,
+                        'proto': proto, 'finalised': 0, 'packet_count': 1}
+            self.logger.debug("FCIP: Adding record for %s to DB",
+                                                db_data_full)
+            db_result = self.fcip.insert_one(db_data_full)
+        elif self.fcip_doc['finalised']:
+            #*** The flow is already finalised so do nothing:
+            pass
+        else:
+            #*** We've found the flow in the FCIP database, now update it:
+            self.logger.debug("FCIP: found existing record %s", self.fcip_doc)
+            #*** Increment packet count. Is it at max?:
+            self.fcip_doc['packet_count'] += 1
+            if self.fcip_doc['packet_count'] >= self.max_packet_count:
+                #*** TBD
+                self.fcip_doc['finalised'] = 1
+            #*** Write updated FCIP data back to database:
+            db_result = self.fcip.update_one({'hash': self.fcip_hash},
+                {'$set': {'packet_count': self.fcip_doc['packet_count'],
+                        'finalised': self.fcip_doc['finalised']},})
 
 def hash_5tuple(ip_A, ip_B, tp_src, tp_dst, proto):
     """
