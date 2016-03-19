@@ -355,11 +355,13 @@ class Flow(object):
         ip_dst              # IP dest address of latest packet in flow
         tcp_src             # TCP source port of latest packet in flow
         tcp_dst             # TCP dest port of latest packet in flow
+        client              # Which IP is the originator of the TCP session
+                            #  (if known, otherwise 0)
 
     Challenges:
      - duplicate packets
      - IP fragments (not handled)
-     - Flow reuse (not handled - yet)
+     - Flow reuse - TCP source port reused (not handled - yet)
     """
     def __init__(self, fcip, logger):
         """
@@ -378,6 +380,7 @@ class Flow(object):
         self.packet_count = 0
         self.fcip_doc = {}
         self.fcip_hash = 0
+        self.client = 0
 
     def ingest_packet(self, pkt):
         """
@@ -412,8 +415,11 @@ class Flow(object):
         db_data = {'hash': self.fcip_hash}
         self.fcip_doc = self.fcip.find_one(db_data)
         if not self.fcip_doc:
-            #*** Get server direction:
-            #direction = _get_direction(
+            #*** Get flow direction (which way is TCP initiated). Client is
+            #***  the end that sends the initial TCP SYN:
+            if _is_tcp_syn(tcp.flags):
+                self.logger.debug("Matched TCP SYN, src_ip=%s", ip_src)
+                self.client = ip_src
             #*** Neither direction found, so add to FCIP database:
             db_data_full = {'hash': self.fcip_hash, 'ip_A': ip_src,
                         'ip_B': ip_dst, 'port_A': tcp_src, 'port_B': tcp_dst,
@@ -436,6 +442,16 @@ class Flow(object):
             db_result = self.fcip.update_one({'hash': self.fcip_hash},
                 {'$set': {'packet_count': self.fcip_doc['packet_count'],
                         'finalised': self.fcip_doc['finalised']},})
+
+def _is_tcp_syn(tcp_flags):
+    """
+    Passed a TCP flags object and return 1 if it
+    contains a TCP SYN and no other flags
+    """
+    if tcp_flags == 2:
+        return 1
+    else:
+        return 0
 
 def hash_5tuple(ip_A, ip_B, tp_src, tp_dst, proto):
     """
