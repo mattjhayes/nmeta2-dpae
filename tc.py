@@ -188,6 +188,12 @@ class TC(object):
         self.logger.debug("Unknown packet, type=%s", eth.type)
         return result
 
+    def _basic_statistical_classifier(self):
+        """
+        TBD
+        """
+        pass
+
     def _parse_dns(self, dns_data, eth_src):
         """
         Check if packet is DNS, and if so return a list
@@ -357,6 +363,8 @@ class Flow(object):
         tcp_dst             # TCP dest port of latest packet in flow
         client              # Which IP is the originator of the TCP session
                             #  (if known, otherwise 0)
+        server              # Which IP is the destination of the TCP session
+                            #  (if known, otherwise 0)
 
     Challenges:
      - duplicate packets
@@ -381,6 +389,7 @@ class Flow(object):
         self.fcip_doc = {}
         self.fcip_hash = 0
         self.client = 0
+        self.server = 0
 
     def ingest_packet(self, pkt, pkt_receive_timestamp):
         """
@@ -420,11 +429,13 @@ class Flow(object):
             if _is_tcp_syn(tcp.flags):
                 self.logger.debug("Matched TCP SYN, src_ip=%s", ip_src)
                 self.client = ip_src
+                self.server = ip_dst
             #*** Neither direction found, so add to FCIP database:
             db_data_full = {'hash': self.fcip_hash, 'ip_A': ip_src,
                         'ip_B': ip_dst, 'port_A': tcp_src, 'port_B': tcp_dst,
                         'proto': proto, 'finalised': 0, 'packet_count': 1,
-                        'packet_timestamps': [pkt_receive_timestamp,]}
+                        'packet_timestamps': [pkt_receive_timestamp,],
+                        'tcp_flags': [tcp.flags,]}
             self.logger.debug("FCIP: Adding record for %s to DB",
                                                 db_data_full)
             db_result = self.fcip.insert_one(db_data_full)
@@ -439,13 +450,15 @@ class Flow(object):
             if self.fcip_doc['packet_count'] >= self.max_packet_count:
                 #*** TBD
                 self.fcip_doc['finalised'] = 1
-            #*** Add packet timestamp:
+            #*** Add packet timestamps, tcp flags etc:
             self.fcip_doc['packet_timestamps'].append(pkt_receive_timestamp)
+            self.fcip_doc['tcp_flags'].append(tcp.flags)
             #*** Write updated FCIP data back to database:
             db_result = self.fcip.update_one({'hash': self.fcip_hash},
                 {'$set': {'packet_count': self.fcip_doc['packet_count'],
                         'finalised': self.fcip_doc['finalised'],
                         'packet_timestamps': self.fcip_doc['packet_timestamps']
+                        , 'tcp_flags': self.fcip_doc['tcp_flags']
                         },})
 
 def _is_tcp_syn(tcp_flags):
