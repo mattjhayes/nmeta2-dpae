@@ -177,7 +177,7 @@ class TC(object):
         if tcp:
             #*** Create a flow object for classifiers to work with:
             flow = Flow(self.fcip, self.logger)
-            flow.ingest_packet(pkt)
+            flow.ingest_packet(pkt, pkt_receive_timestamp)
 
         #*** Check to see if we have any traffic classifiers to run:
         for tc_type, tc_name in self.classifiers:
@@ -382,7 +382,7 @@ class Flow(object):
         self.fcip_hash = 0
         self.client = 0
 
-    def ingest_packet(self, pkt):
+    def ingest_packet(self, pkt, pkt_receive_timestamp):
         """
         Ingest a packet and put the flow object into the context
         of the flow that the packet belongs to.
@@ -423,7 +423,8 @@ class Flow(object):
             #*** Neither direction found, so add to FCIP database:
             db_data_full = {'hash': self.fcip_hash, 'ip_A': ip_src,
                         'ip_B': ip_dst, 'port_A': tcp_src, 'port_B': tcp_dst,
-                        'proto': proto, 'finalised': 0, 'packet_count': 1}
+                        'proto': proto, 'finalised': 0, 'packet_count': 1,
+                        'packet_timestamps': [pkt_receive_timestamp,]}
             self.logger.debug("FCIP: Adding record for %s to DB",
                                                 db_data_full)
             db_result = self.fcip.insert_one(db_data_full)
@@ -438,10 +439,14 @@ class Flow(object):
             if self.fcip_doc['packet_count'] >= self.max_packet_count:
                 #*** TBD
                 self.fcip_doc['finalised'] = 1
+            #*** Add packet timestamp:
+            self.fcip_doc['packet_timestamps'].append(pkt_receive_timestamp)
             #*** Write updated FCIP data back to database:
             db_result = self.fcip.update_one({'hash': self.fcip_hash},
                 {'$set': {'packet_count': self.fcip_doc['packet_count'],
-                        'finalised': self.fcip_doc['finalised']},})
+                        'finalised': self.fcip_doc['finalised'],
+                        'packet_timestamps': self.fcip_doc['packet_timestamps']
+                        },})
 
 def _is_tcp_syn(tcp_flags):
     """
