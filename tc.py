@@ -412,6 +412,8 @@ class Flow(object):
         db_data = {'hash': self.fcip_hash}
         self.fcip_doc = self.fcip.find_one(db_data)
         if not self.fcip_doc:
+            #*** Get server direction:
+            #direction = _get_direction(
             #*** Neither direction found, so add to FCIP database:
             db_data_full = {'hash': self.fcip_hash, 'ip_A': ip_src,
                         'ip_B': ip_dst, 'port_A': tcp_src, 'port_B': tcp_dst,
