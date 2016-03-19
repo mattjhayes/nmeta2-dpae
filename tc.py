@@ -116,6 +116,9 @@ class TC(object):
         #*** Database index for performance:
         self.fcip.create_index([("hash", 1)])
 
+        #*** Create a flow object for classifiers to work with:
+        self.flow = Flow(self.fcip, self.logger)
+
     def classify_dpkt(self, pkt, pkt_receive_timestamp, if_name):
         """
         Perform traffic classification on a packet
@@ -175,9 +178,8 @@ class TC(object):
             return self._parse_arp(eth, eth_src)
 
         if tcp:
-            #*** Create a flow object for classifiers to work with:
-            flow = Flow(self.fcip, self.logger)
-            flow.ingest_packet(pkt, pkt_receive_timestamp)
+            #*** Read packet into flow object for classifiers to work with:
+            self.flow.ingest_packet(pkt, pkt_receive_timestamp)
 
         #*** Check to see if we have any traffic classifiers to run:
         for tc_type, tc_name in self.classifiers:
@@ -188,11 +190,52 @@ class TC(object):
         self.logger.debug("Unknown packet, type=%s", eth.type)
         return result
 
-    def _basic_statistical_classifier(self):
+    def _statistical_qos_bandwidth_1(self):
         """
-        TBD
+        A really basic statistical classifier to demonstrate ability
+        to differentiate 'bandwidth hog' flows from ones that are
+        more interactive so that appropriate classification metadata
+        can be passed to QoS for differential treatment.
+        This function works on the Flow class object that is instantiated
+        by __init__ and returns a dictionary of results.
+        Only works on TCP.
         """
-        pass
+        self.logger.debug("In _statistical_qos_bandwidth_1")
+        #*** Maximum packets to accumulate in a flow before making a
+        #***  classification:
+        _max_packets = 5
+        #*** Thresholds used in calculations:
+        _max_packet_size_threshold = 1200
+        _interpacket_ratio_threshold = 0.62
+        if self.flow.packet_count >= _max_packets and not self.flow.finalised:
+            #*** Reached our maximum packet count so do some classification:
+            self.logger.debug("Reached max packets count, finalising")
+            self.flow.finalised = 1
+
+            #*** Call functions to get statistics to make decisions on:
+            _max_packet_size = self.flow.max_packet_size()
+            _max_interpacket_interval = self.flow.max_interpacket_interval()
+            _min_interpacket_interval = self.flow.min_interpacket_interval()
+
+            #*** Avoid possible divide by zero error:
+            if (_max_interpacket_interval and _min_interpacket_interval):
+                #*** Ratio between largest directional interpacket delta and
+                #***  smallest. Use a ratio as it accounts for base RTT:
+                _interpacket_ratio = float(_min_interpacket_interval) / \
+                                            float(_max_interpacket_interval)
+            else:
+                _interpacket_ratio = 0
+            self.logger.debug("max_packet_size=%s interpacket_ratio=%s",
+                        _max_packet_size, _interpacket_ratio)
+            #*** Decide actions based on the statistics:
+            if (_max_packet_size > _max_packet_size_threshold and
+                            _interpacket_ratio < _interpacket_ratio_threshold):
+                #*** This traffic looks like a bandwidth hog so constrain it:
+                _actions = { 'set_qos_tag': "QoS_treatment=constrained_bw" }
+            else:
+                #*** Doesn't look like bandwidth hog so default priority:
+                _actions = { 'set_qos_tag': "QoS_treatment=default_priority" }
+            self.logger.debug("Decided on actions %s", _actions)
 
     def _parse_dns(self, dns_data, eth_src):
         """
@@ -353,7 +396,7 @@ class Flow(object):
     can use to make determinations without having to understand
     implementations such as database lookups etc.
 
-    Variables Exposed for Classifiers (assumes class instantiated as
+    Variables available for Classifiers (assumes class instantiated as
     an object called 'flow'):
         flow.finalised      # A classification has been made
         flow.packet_count   # Unique packets registered for the flow
@@ -365,6 +408,12 @@ class Flow(object):
                             #  (if known, otherwise 0)
         server              # Which IP is the destination of the TCP session
                             #  (if known, otherwise 0)
+
+    Methods available for Classifiers (assumes class instantiated as
+    an object called 'flow'):
+        max_packet_size()           # TBD
+        max_interpacket_interval()  # TBD
+        min_interpacket_interval()  # TBD
 
     Challenges:
      - duplicate packets
