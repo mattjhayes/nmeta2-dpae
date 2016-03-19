@@ -1,2 +1,2 @@
-# nmeta2-dpae
+# nmeta2dpae
 Data Plane Auxiliary Engine (DPAE) for use with nmeta2
