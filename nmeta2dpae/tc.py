@@ -416,7 +416,7 @@ class Flow(object):
 
     Methods available for Classifiers (assumes class instantiated as
     an object called 'flow'):
-        flow.max_packet_size()           # TBD
+        flow.max_packet_size()           # Size of largest packet in the flow
         flow.max_interpacket_interval()  # TBD
         flow.min_interpacket_interval()  # TBD
 
@@ -530,8 +530,7 @@ class Flow(object):
         """
         Return the size of the largest packet in the flow
         """
-        _max_packet_size = max(self.fcip_doc['packet_lengths'])
-        return _max_packet_size
+        return max(self.fcip_doc['packet_lengths'])
 
     def max_interpacket_interval(self):
         """
