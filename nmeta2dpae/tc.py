@@ -536,12 +536,16 @@ class Flow(object):
                     'packet_lengths': self.fcip_doc['packet_lengths'],
                     'packet_directions': self.fcip_doc['packet_directions']
                         },})
-            #*** Test:
+            #*** Tests:
             self.logger.debug("max_packet_size is %s", self.max_packet_size())
+            self.logger.debug("max_interpacket_interval is %s",
+                                            self.max_interpacket_interval())
+            self.logger.debug("min_interpacket_interval is %s",
+                                            self.min_interpacket_interval())
 
     def max_packet_size(self):
         """
-        Return the size of the largest packet in the flow
+        Return the size of the largest packet in the flow (in either direction)
         """
         return max(self.fcip_doc['packet_lengths'])
 
@@ -550,21 +554,82 @@ class Flow(object):
         Return the size of the largest inter-packet time interval
         in the flow (assessed per direction in flow)
         """
-        #*** TBD:
-        pass
+        max_c2s = 0
+        max_s2c = 0
+        count_c2s = 0
+        count_s2c = 0
+        prev_c2s_idx = 0
+        prev_s2c_idx = 0
+        for idx, direction in enumerate(self.fcip_doc['packet_directions']):
+            if direction == 'c2s':
+                count_c2s += 1
+                if count_c2s > 1:
+                    current_ts = self.fcip_doc['packet_timestamps'][idx]
+                    prev_ts = self.fcip_doc['packet_timestamps'][prev_c2s_idx]
+                    delta = current_ts - prev_ts
+                    if delta > max_c2s:
+                        max_c2s = delta
+                    prev_c2s_idx = idx
+            elif direction == 's2c':
+                count_s2c += 1
+                if count_s2c > 1:
+                    current_ts = self.fcip_doc['packet_timestamps'][idx]
+                    prev_ts = self.fcip_doc['packet_timestamps'][prev_s2c_idx]
+                    delta = current_ts - prev_ts
+                    if delta > max_s2c:
+                        max_s2c = delta
+                    prev_s2c_idx = idx
+            else:
+                #*** Don't know direction so ignore:
+                pass
+        #*** Return the largest interpacket delay overall:
+        if max_c2s > max_s2c:
+            return max_c2s
+        else:
+            return max_s2c
         
     def min_interpacket_interval(self):
         """
         Return the size of the smallest inter-packet time interval
         in the flow (assessed per direction in flow)
         """
-        _min_interval = 0
-        #*** Build list of client to server inter-packet intervals
-
-        #*** Build list of server to client inter-packet intervals
-        
-        #*** TBD:
-        return _min_interval
+        min_c2s = 0
+        min_s2c = 0
+        count_c2s = 0
+        count_s2c = 0
+        prev_c2s_idx = 0
+        prev_s2c_idx = 0
+        for idx, direction in enumerate(self.fcip_doc['packet_directions']):
+            if direction == 'c2s':
+                count_c2s += 1
+                if count_c2s > 1:
+                    current_ts = self.fcip_doc['packet_timestamps'][idx]
+                    prev_ts = self.fcip_doc['packet_timestamps'][prev_c2s_idx]
+                    delta = current_ts - prev_ts
+                    if not min_c2s or delta < min_c2s:
+                        min_c2s = delta
+                    prev_c2s_idx = idx
+            elif direction == 's2c':
+                count_s2c += 1
+                if count_s2c > 1:
+                    current_ts = self.fcip_doc['packet_timestamps'][idx]
+                    prev_ts = self.fcip_doc['packet_timestamps'][prev_s2c_idx]
+                    delta = current_ts - prev_ts
+                    if not min_s2c or delta < min_s2c:
+                        min_s2c = delta
+                    prev_s2c_idx = idx
+            else:
+                #*** Don't know direction so ignore:
+                pass
+        #*** Return the smallest interpacket delay overall, watch out for
+        #***  where we didn't get a calculation (don't return 0 unless both 0):
+        if not min_s2c:
+            #*** min_s2c not set so return min_c2s as it might be:
+            return min_c2s
+        elif 0 < min_c2s < min_s2c:
+            return min_c2s
+        else:
+            return min_s2c
         
 def _is_tcp_syn(tcp_flags):
     """
