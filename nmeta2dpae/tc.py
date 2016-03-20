@@ -398,28 +398,34 @@ class Flow(object):
 
     Variables available for Classifiers (assumes class instantiated as
     an object called 'flow'):
+
+        # Variables for the current packet:
+        flow.packet_length  # Length in bytes of the current packet on wire
+        flow.ip_src         # IP source address of latest packet in flow
+        flow.ip_dst         # IP dest address of latest packet in flow
+        flow.tcp_src        # TCP source port of latest packet in flow
+        flow.tcp_dst        # TCP dest port of latest packet in flow
+
+        # Variables for the whole flow:
         flow.finalised      # A classification has been made
         flow.packet_count   # Unique packets registered for the flow
-        ip_src              # IP source address of latest packet in flow
-        ip_dst              # IP dest address of latest packet in flow
-        tcp_src             # TCP source port of latest packet in flow
-        tcp_dst             # TCP dest port of latest packet in flow
-        client              # Which IP is the originator of the TCP session
-                            #  (if known, otherwise 0)
-        server              # Which IP is the destination of the TCP session
-                            #  (if known, otherwise 0)
+        flow.client         # The IP that is the originator of the TCP
+                            #  session (if known, otherwise 0)
+        flow.server         # The IP that is the destination of the TCP session
+                            #  session (if known, otherwise 0)
 
     Methods available for Classifiers (assumes class instantiated as
     an object called 'flow'):
-        max_packet_size()           # TBD
-        max_interpacket_interval()  # TBD
-        min_interpacket_interval()  # TBD
+        flow.max_packet_size()           # TBD
+        flow.max_interpacket_interval()  # TBD
+        flow.min_interpacket_interval()  # TBD
 
     Challenges:
      - duplicate packets
      - IP fragments (not handled)
      - Flow reuse - TCP source port reused (not handled - yet)
     """
+
     def __init__(self, fcip, logger):
         """
         Initialise an instance of the Flow class for a new
@@ -434,6 +440,7 @@ class Flow(object):
         self.max_packet_count = 10
         #*** Initialise flow variables:
         self.finalised = 0
+        self.packet_length = 0
         self.packet_count = 0
         self.fcip_doc = {}
         self.fcip_hash = 0
@@ -445,6 +452,8 @@ class Flow(object):
         Ingest a packet and put the flow object into the context
         of the flow that the packet belongs to.
         """
+        #*** Packet length on the wire:
+        self.packet_length = len(pkt)
         #*** Read into dpkt:
         eth = dpkt.ethernet.Ethernet(pkt)
         eth_src = mac_addr(eth.src)
@@ -480,14 +489,17 @@ class Flow(object):
                 self.client = ip_src
                 self.server = ip_dst
             #*** Neither direction found, so add to FCIP database:
-            db_data_full = {'hash': self.fcip_hash, 'ip_A': ip_src,
+            self.fcip_doc = {'hash': self.fcip_hash, 'ip_A': ip_src,
                         'ip_B': ip_dst, 'port_A': tcp_src, 'port_B': tcp_dst,
                         'proto': proto, 'finalised': 0, 'packet_count': 1,
                         'packet_timestamps': [pkt_receive_timestamp,],
-                        'tcp_flags': [tcp.flags,]}
+                        'tcp_flags': [tcp.flags,],
+                        'packet_lengths': [self.packet_length,],
+                        'client': self.client,
+                        'server': self.server}
             self.logger.debug("FCIP: Adding record for %s to DB",
-                                                db_data_full)
-            db_result = self.fcip.insert_one(db_data_full)
+                                                self.fcip_doc)
+            db_result = self.fcip.insert_one(self.fcip_doc)
         elif self.fcip_doc['finalised']:
             #*** The flow is already finalised so do nothing:
             pass
@@ -502,14 +514,37 @@ class Flow(object):
             #*** Add packet timestamps, tcp flags etc:
             self.fcip_doc['packet_timestamps'].append(pkt_receive_timestamp)
             self.fcip_doc['tcp_flags'].append(tcp.flags)
+            self.fcip_doc['packet_lengths'].append(self.packet_length)
             #*** Write updated FCIP data back to database:
             db_result = self.fcip.update_one({'hash': self.fcip_hash},
                 {'$set': {'packet_count': self.fcip_doc['packet_count'],
-                        'finalised': self.fcip_doc['finalised'],
-                        'packet_timestamps': self.fcip_doc['packet_timestamps']
-                        , 'tcp_flags': self.fcip_doc['tcp_flags']
+                    'finalised': self.fcip_doc['finalised'],
+                    'packet_timestamps': self.fcip_doc['packet_timestamps'],
+                    'tcp_flags': self.fcip_doc['tcp_flags'],
+                    'packet_lengths': self.fcip_doc['packet_lengths']
                         },})
+            #*** Test:
+            self.logger.debug("max_packet_size is %s", self.max_packet_size())
 
+    def max_packet_size(self):
+        """
+        Return the size of the largest packet in the flow
+        """
+        _max_packet_size = max(self.fcip_doc['packet_lengths'])
+        return _max_packet_size
+
+    def max_interpacket_interval(self):
+        """
+        """
+        #*** TBD:
+        pass
+        
+    def min_interpacket_interval(self):
+        """
+        """
+        #*** TBD:
+        pass
+        
 def _is_tcp_syn(tcp_flags):
     """
     Passed a TCP flags object and return 1 if it
