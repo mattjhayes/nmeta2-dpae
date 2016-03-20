@@ -400,11 +400,12 @@ class Flow(object):
     an object called 'flow'):
 
         # Variables for the current packet:
-        flow.packet_length  # Length in bytes of the current packet on wire
         flow.ip_src         # IP source address of latest packet in flow
         flow.ip_dst         # IP dest address of latest packet in flow
         flow.tcp_src        # TCP source port of latest packet in flow
         flow.tcp_dst        # TCP dest port of latest packet in flow
+        flow.packet_length  # Length in bytes of the current packet on wire
+        flow.packet_direction   # c2s (client to server), s2c or unknown
 
         # Variables for the whole flow:
         flow.finalised      # A classification has been made
@@ -446,6 +447,7 @@ class Flow(object):
         self.fcip_hash = 0
         self.client = 0
         self.server = 0
+        self.packet_direction = 'unknown'
 
     def ingest_packet(self, pkt, pkt_receive_timestamp):
         """
@@ -488,6 +490,7 @@ class Flow(object):
                 self.logger.debug("Matched TCP SYN, src_ip=%s", ip_src)
                 self.client = ip_src
                 self.server = ip_dst
+
             #*** Neither direction found, so add to FCIP database:
             self.fcip_doc = {'hash': self.fcip_hash, 'ip_A': ip_src,
                         'ip_B': ip_dst, 'port_A': tcp_src, 'port_B': tcp_dst,
@@ -496,7 +499,8 @@ class Flow(object):
                         'tcp_flags': [tcp.flags,],
                         'packet_lengths': [self.packet_length,],
                         'client': self.client,
-                        'server': self.server}
+                        'server': self.server,
+                        'packet_directions': ['c2s',]}
             self.logger.debug("FCIP: Adding record for %s to DB",
                                                 self.fcip_doc)
             db_result = self.fcip.insert_one(self.fcip_doc)
@@ -506,6 +510,13 @@ class Flow(object):
         else:
             #*** We've found the flow in the FCIP database, now update it:
             self.logger.debug("FCIP: found existing record %s", self.fcip_doc)
+            #*** Rate this packet as c2s or s2c direction:
+            if self.client == ip_src:
+                self.packet_direction = 'c2s'
+            elif self.client == ip_dst:
+                self.packet_direction = 's2c'
+            else:
+                self.packet_direction = 'unknown'
             #*** Increment packet count. Is it at max?:
             self.fcip_doc['packet_count'] += 1
             if self.fcip_doc['packet_count'] >= self.max_packet_count:
@@ -515,13 +526,15 @@ class Flow(object):
             self.fcip_doc['packet_timestamps'].append(pkt_receive_timestamp)
             self.fcip_doc['tcp_flags'].append(tcp.flags)
             self.fcip_doc['packet_lengths'].append(self.packet_length)
+            self.fcip_doc['packet_directions'].append(self.packet_direction)
             #*** Write updated FCIP data back to database:
             db_result = self.fcip.update_one({'hash': self.fcip_hash},
                 {'$set': {'packet_count': self.fcip_doc['packet_count'],
                     'finalised': self.fcip_doc['finalised'],
                     'packet_timestamps': self.fcip_doc['packet_timestamps'],
                     'tcp_flags': self.fcip_doc['tcp_flags'],
-                    'packet_lengths': self.fcip_doc['packet_lengths']
+                    'packet_lengths': self.fcip_doc['packet_lengths'],
+                    'packet_directions': self.fcip_doc['packet_directions']
                         },})
             #*** Test:
             self.logger.debug("max_packet_size is %s", self.max_packet_size())
@@ -534,15 +547,24 @@ class Flow(object):
 
     def max_interpacket_interval(self):
         """
+        Return the size of the largest inter-packet time interval
+        in the flow (assessed per direction in flow)
         """
         #*** TBD:
         pass
         
     def min_interpacket_interval(self):
         """
+        Return the size of the smallest inter-packet time interval
+        in the flow (assessed per direction in flow)
         """
+        _min_interval = 0
+        #*** Build list of client to server inter-packet intervals
+
+        #*** Build list of server to client inter-packet intervals
+        
         #*** TBD:
-        pass
+        return _min_interval
         
 def _is_tcp_syn(tcp_flags):
     """
