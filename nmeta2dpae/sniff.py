@@ -22,10 +22,8 @@ import struct
 import time
 import sys
 
-#*** Scapy Imports:
-from scapy.all import ETH_P_ALL
-from scapy.all import MTU
-from scapy.all import Ether, IP, UDP, TCP
+#*** Import dpkt for packet parsing:
+import dpkt
 
 import logging
 import logging.handlers
@@ -42,6 +40,12 @@ import fcntl
 IFF_PROMISC = 0x100
 SIOCGIFFLAGS = 0x8913
 SIOCSIFFLAGS = 0x8914
+
+#*** TBD, this should be autodetected:
+MTU = 1500
+
+#*** TBD, this should be validated:
+ETH_P_ALL = 3
 
 class Sniff(object):
     """
@@ -151,23 +155,24 @@ class Sniff(object):
             #*** Get packet from socket:
             pkt, sa_ll = mysock.recvfrom(MTU)
 
-            #*** Read into Scapy:
-            self.logger.debug("sniff reading packet into scapy...")
-            scapy_pkt = Ether(pkt)
+            #*** Read into dpkt:
+            eth = dpkt.ethernet.Ethernet(pkt)
+            eth_src = mac_addr(eth.src)
+            eth_dst = mac_addr(eth.dst)
+            eth_payload = eth.data
 
             #*** Ignore outgoing packets:
             pkt_type = sa_ll[2]
             if pkt_type == socket.PACKET_OUTGOING:
                 self.logger.debug("sniff ignoring outgoing packet")
             else:
-                if (scapy_pkt.src == dpae2ctrl_mac and
-                            scapy_pkt.dst == ctrl2dpae_mac):
+                if (eth_src == dpae2ctrl_mac and
+                            eth_dst == ctrl2dpae_mac):
                     self.logger.debug("Matched discover confirm, src=%s "
                                             "dst=%s payload=%s",
-                                            scapy_pkt.src, scapy_pkt.dst,
-                                            scapy_pkt.payload)
+                                            eth_src, eth_dst, eth_payload)
                     #*** Validate JSON in payload:
-                    json_decode = JSON_Body(str(scapy_pkt.payload))
+                    json_decode = JSON_Body(str(eth_payload))
                     if json_decode.error:
                         self.logger.error("Phase 3 packet payload is not JSON"
                                             "error=%s", json_decode.error_full)
@@ -274,3 +279,9 @@ class JSON_Body(object):
             return self.req_body[key]
         else:
             return 0
+
+def mac_addr(address):
+    """
+    Convert a MAC address to a readable/printable string
+    """
+    return ':'.join('%02x' % ord(b) for b in address)
