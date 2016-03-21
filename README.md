@@ -32,4 +32,7 @@ alias nm2="sudo python ~/nmeta2dpae/nmeta2dpae/nmeta2dpae.py"
 ```
 
 ### Edit Config
-TBD
+Edit the config file `~/nmeta2dpae/nmeta2dpae/config/config.yaml` and update values as appropriate. You should check:
+* URL for nmeta2 under key `nmeta_controller_address`
+* Which interfaces should sniff under key `sniff_if_names`
+* MongoDB settings under keys `mongo_addr` and `mongo_port`
