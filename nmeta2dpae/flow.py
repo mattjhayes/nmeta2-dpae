@@ -30,6 +30,9 @@ import socket
 #*** Import dpkt for packet parsing:
 import dpkt
 
+#*** mongodb Database Import:
+from pymongo import MongoClient
+
 #*** For hashing flow 5-tuples:
 import hashlib
 
@@ -72,7 +75,7 @@ class Flow(object):
      - Flow reuse - TCP source port reused (not handled - yet)
     """
 
-    def __init__(self, fcip, logger):
+    def __init__(self, logger, mongo_addr, mongo_port):
         """
         Initialise an instance of the Flow class for a new
         flow. Passed layer 3/4 parameters.
@@ -80,7 +83,6 @@ class Flow(object):
         already exist. If it does exist, update it.
         Only works for TCP at this stage.
         """
-        self.fcip = fcip
         self.logger = logger
         #*** Maximum packets in a flow before finalising:
         self.max_packet_count = 10
@@ -93,6 +95,24 @@ class Flow(object):
         self.client = 0
         self.server = 0
         self.packet_direction = 'unknown'
+
+        #*** Start mongodb:
+        self.logger.info("Connecting to mongodb database...")
+        mongo_client = MongoClient(mongo_addr, mongo_port)
+
+        #*** Connect to specific databases and collections in mongodb:
+        #*** FCIP (Flow Classification in Progress) database:
+        db_fcip = mongo_client.fcip_database
+        self.fcip = db_fcip.fcip
+
+        #*** DPAE database - delete all previous entries:
+        result = self.fcip.delete_many({})
+        self.logger.info("Initialising FCIP database, Deleted %s previous "
+                "entries from dbdpae", result.deleted_count)
+
+        #*** Database index for performance:
+        self.fcip.create_index([("hash", 1)])
+
 
     def ingest_packet(self, pkt, pkt_receive_timestamp):
         """

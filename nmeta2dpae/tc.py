@@ -36,9 +36,6 @@ import struct
 #*** Import dpkt for packet parsing:
 import dpkt
 
-#*** mongodb Database Import:
-from pymongo import MongoClient
-
 #*** For performance tuning timing:
 import time
 
@@ -97,27 +94,10 @@ class TC(object):
         #*** Initialise list for TC classifiers to run:
         self.classifiers = []
 
-        #*** Start mongodb:
-        self.logger.info("Connecting to mongodb database...")
-        self.mongo_addr = _config.get_value("mongo_addr")
-        self.mongo_port = _config.get_value("mongo_port")
-        mongo_client = MongoClient(self.mongo_addr, self.mongo_port)
-
-        #*** Connect to specific databases and collections in mongodb:
-        #*** FCIP (Flow Classification in Progress) database:
-        db_fcip = mongo_client.fcip_database
-        self.fcip = db_fcip.fcip
-
-        #*** DPAE database - delete all previous entries:
-        result = self.fcip.delete_many({})
-        self.logger.info("Initialising FCIP database, Deleted %s previous "
-                "entries from dbdpae", result.deleted_count)
-
-        #*** Database index for performance:
-        self.fcip.create_index([("hash", 1)])
-
-        #*** Create a flow object for classifiers to work with:
-        self.flow = flow.Flow(self.fcip, self.logger)
+        #*** Instantiate a flow object for classifiers to work with:
+        _mongo_addr = _config.get_value("mongo_addr")
+        _mongo_port = _config.get_value("mongo_port")
+        self.flow = flow.Flow(self.logger, _mongo_addr, _mongo_port)
 
     def classify_dpkt(self, pkt, pkt_receive_timestamp, if_name):
         """
