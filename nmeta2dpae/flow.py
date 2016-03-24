@@ -162,6 +162,7 @@ class Flow(object):
                 self.logger.debug("Matched TCP SYN, src_ip=%s", self.ip_src)
                 self.client = self.ip_src
                 self.server = self.ip_dst
+                self.packet_direction = 'c2s'
 
             #*** Neither direction found, so add to FCIP database:
             self.fcip_doc = {'hash': self.fcip_hash, 'ip_A': self.ip_src,
@@ -177,9 +178,12 @@ class Flow(object):
             self.logger.debug("FCIP: Adding record for %s to DB",
                                                 self.fcip_doc)
             db_result = self.fcip.insert_one(self.fcip_doc)
+            self.packet_count = 1
+
         elif self.fcip_doc['finalised']:
             #*** The flow is already finalised so do nothing:
             pass
+
         else:
             #*** We've found the flow in the FCIP database, now update it:
             self.logger.debug("FCIP: found existing record %s", self.fcip_doc)
@@ -192,6 +196,7 @@ class Flow(object):
                 self.packet_direction = 'unknown'
             #*** Increment packet count. Is it at max?:
             self.fcip_doc['packet_count'] += 1
+            self.packet_count = self.fcip_doc['packet_count']
             if self.fcip_doc['packet_count'] >= self.max_packet_count:
                 #*** TBD
                 self.fcip_doc['finalised'] = 1
