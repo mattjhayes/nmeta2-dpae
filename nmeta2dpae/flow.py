@@ -85,6 +85,13 @@ class Flow(object):
         self.logger = logger
         #*** Maximum packets in a flow before finalising:
         self.max_packet_count = 10
+
+        #*** Initialise packet variables:
+        self.ip_src = 0
+        self.ip_dst = 0
+        self.tcp_src = 0
+        self.tcp_dst = 0
+
         #*** Initialise flow variables:
         self.finalised = 0
         self.packet_length = 0
@@ -139,11 +146,11 @@ class Flow(object):
             return 0
         proto = 'tcp'
         tcp = ip.data
-        tcp_src = tcp.sport
-        tcp_dst = tcp.dport
+        self.tcp_src = tcp.sport
+        self.tcp_dst = tcp.dport
         #*** Generate a hash unique to flow for packets in either direction
-        self.fcip_hash = hash_5tuple(self.ip_src, self.ip_dst, tcp_src,
-                                        tcp_dst, proto)
+        self.fcip_hash = hash_5tuple(self.ip_src, self.ip_dst, self.tcp_src,
+                                        self.tcp_dst, proto)
         self.logger.debug("FCIP hash=%s", self.fcip_hash)
         #*** Check to see if we already know this identity:
         db_data = {'hash': self.fcip_hash}
@@ -158,8 +165,8 @@ class Flow(object):
 
             #*** Neither direction found, so add to FCIP database:
             self.fcip_doc = {'hash': self.fcip_hash, 'ip_A': self.ip_src,
-                        'ip_B': self.ip_dst, 'port_A': tcp_src,
-                        'port_B': tcp_dst,
+                        'ip_B': self.ip_dst, 'port_A': self.tcp_src,
+                        'port_B': self.tcp_dst,
                         'proto': proto, 'finalised': 0, 'packet_count': 1,
                         'packet_timestamps': [pkt_receive_timestamp,],
                         'tcp_flags': [tcp.flags,],

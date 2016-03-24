@@ -161,9 +161,6 @@ class TC(object):
             #*** Read packet into flow object for classifiers to work with:
             self.flow.ingest_packet(pkt, pkt_receive_timestamp)
 
-            #*** TEMP:
-            self.logger.debug("pkt=%s", pkt)
-
         #*** Check to see if we have any traffic classifiers to run:
         for tc_type, tc_name in self.classifiers:
             self.logger.debug("Checking packet against tc_type=%s tc_name=%s",

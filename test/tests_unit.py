@@ -79,6 +79,9 @@ def test_flow():
     pkt7 = binascii.unhexlify("080027c8db910800272ad6dd0800451000341a00400040060cb00a0100010a010002a9210050c37250d89e5c9dfa801001c9142b00000101080a005b4d59005b3a18")
     pkt7_timestamp = 1458782852.091702000
 
+    #*** Packet lengths on the wire (null value for index 0):
+    pkt_len = [0, 74, 74, 66, 71, 66, 162, 66]
+
     #*** Sanity check can read into dpkt:
     eth = dpkt.ethernet.Ethernet(pkt1)
     eth_src = mac_addr(eth.src)
@@ -89,34 +92,62 @@ def test_flow():
 
     #*** Test Packet 1:
     flow.ingest_packet(pkt1, pkt1_timestamp)
+    assert flow.packet_length == pkt_len[1]
     assert flow.ip_src == '10.1.0.1'
     assert flow.ip_dst == '10.1.0.2'
+    assert flow.tcp_src == 43297
+    assert flow.tcp_dst == 80
+
 
     #*** Test Packet 2:
     flow.ingest_packet(pkt2, pkt1_timestamp)
+    assert flow.packet_length == pkt_len[2]
     assert flow.ip_src == '10.1.0.2'
     assert flow.ip_dst == '10.1.0.1'
+    assert flow.tcp_src == 80
+    assert flow.tcp_dst == 43297
 
     #*** Test Packet 3:
     flow.ingest_packet(pkt3, pkt1_timestamp)
+    assert flow.packet_length == pkt_len[3]
     assert flow.ip_src == '10.1.0.1'
     assert flow.ip_dst == '10.1.0.2'
+    assert flow.tcp_src == 43297
+    assert flow.tcp_dst == 80
 
     #*** Test Packet 4:
     flow.ingest_packet(pkt4, pkt1_timestamp)
+    assert flow.packet_length == pkt_len[4]
     assert flow.ip_src == '10.1.0.1'
     assert flow.ip_dst == '10.1.0.2'
+    assert flow.tcp_src == 43297
+    assert flow.tcp_dst == 80
 
     #*** Test Packet 5:
     flow.ingest_packet(pkt5, pkt1_timestamp)
+    assert flow.packet_length == pkt_len[5]
     assert flow.ip_src == '10.1.0.2'
     assert flow.ip_dst == '10.1.0.1'
+    assert flow.tcp_src == 80
+    assert flow.tcp_dst == 43297
+
+    #*** Test Packet 6:
+    flow.ingest_packet(pkt6, pkt1_timestamp)
+    assert flow.packet_length == pkt_len[6]
+    assert flow.ip_src == '10.1.0.2'
+    assert flow.ip_dst == '10.1.0.1'
+    assert flow.tcp_src == 80
+    assert flow.tcp_dst == 43297
+
+    #*** Test Packet 7:
+    flow.ingest_packet(pkt7, pkt1_timestamp)
+    assert flow.packet_length == pkt_len[7]
+    assert flow.ip_src == '10.1.0.1'
+    assert flow.ip_dst == '10.1.0.2'
+    assert flow.tcp_src == 43297
+    assert flow.tcp_dst == 80
 
     # TBD:
-        #flow.ip_dst         # IP dest address of latest packet in flow
-        #flow.tcp_src        # TCP source port of latest packet in flow
-        #flow.tcp_dst        # TCP dest port of latest packet in flow
-        #flow.packet_length  # Length in bytes of the current packet on wire
         #flow.packet_direction   # c2s (client to server), s2c or unknown
 
         # Variables for the whole flow:
