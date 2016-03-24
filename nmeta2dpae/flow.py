@@ -14,8 +14,7 @@
 #*** nmeta - Network Metadata - Policy Interpretation Class and Methods
 
 """
-This module is part of the nmeta suite running on top of Ryu SDN
-controller to provide network identity and flow metadata.
+This module is part of the nmeta2 suite
 .
 It provides an abstraction for a TCP flow that links to
 a MongoDB database and changes to the context of the flow
@@ -131,8 +130,8 @@ class Flow(object):
             self.logger.error("Non IPv4 packet, eth_type is %s", eth_type)
             return 0
         ip = eth.data
-        ip_src = socket.inet_ntop(socket.AF_INET, ip.src)
-        ip_dst = socket.inet_ntop(socket.AF_INET, ip.dst)
+        self.ip_src = socket.inet_ntop(socket.AF_INET, ip.src)
+        self.ip_dst = socket.inet_ntop(socket.AF_INET, ip.dst)
         #*** We only support TCP:
         if ip.p != 6:
             self.logger.error("Non TCP packet, ip_proto=%s",
@@ -143,7 +142,8 @@ class Flow(object):
         tcp_src = tcp.sport
         tcp_dst = tcp.dport
         #*** Generate a hash unique to flow for packets in either direction
-        self.fcip_hash = hash_5tuple(ip_src, ip_dst, tcp_src, tcp_dst, proto)
+        self.fcip_hash = hash_5tuple(self.ip_src, self.ip_dst, tcp_src,
+                                        tcp_dst, proto)
         self.logger.debug("FCIP hash=%s", self.fcip_hash)
         #*** Check to see if we already know this identity:
         db_data = {'hash': self.fcip_hash}
@@ -152,13 +152,14 @@ class Flow(object):
             #*** Get flow direction (which way is TCP initiated). Client is
             #***  the end that sends the initial TCP SYN:
             if _is_tcp_syn(tcp.flags):
-                self.logger.debug("Matched TCP SYN, src_ip=%s", ip_src)
-                self.client = ip_src
-                self.server = ip_dst
+                self.logger.debug("Matched TCP SYN, src_ip=%s", self.ip_src)
+                self.client = self.ip_src
+                self.server = self.ip_dst
 
             #*** Neither direction found, so add to FCIP database:
-            self.fcip_doc = {'hash': self.fcip_hash, 'ip_A': ip_src,
-                        'ip_B': ip_dst, 'port_A': tcp_src, 'port_B': tcp_dst,
+            self.fcip_doc = {'hash': self.fcip_hash, 'ip_A': self.ip_src,
+                        'ip_B': self.ip_dst, 'port_A': tcp_src,
+                        'port_B': tcp_dst,
                         'proto': proto, 'finalised': 0, 'packet_count': 1,
                         'packet_timestamps': [pkt_receive_timestamp,],
                         'tcp_flags': [tcp.flags,],
@@ -176,9 +177,9 @@ class Flow(object):
             #*** We've found the flow in the FCIP database, now update it:
             self.logger.debug("FCIP: found existing record %s", self.fcip_doc)
             #*** Rate this packet as c2s or s2c direction:
-            if self.client == ip_src:
+            if self.client == self.ip_src:
                 self.packet_direction = 'c2s'
-            elif self.client == ip_dst:
+            elif self.client == self.ip_dst:
                 self.packet_direction = 's2c'
             else:
                 self.packet_direction = 'unknown'

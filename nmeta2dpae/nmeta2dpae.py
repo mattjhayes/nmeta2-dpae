@@ -14,6 +14,8 @@
 # limitations under the License.
 
 """
+This module is part of the nmeta2 suite
+.
 nmeta Data Plane Auxiliary Engine (DPAE)
 Used as an auxilary data plane component for functions such as
 offloading packet-intensive traffic classification

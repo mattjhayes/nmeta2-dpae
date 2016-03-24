@@ -12,7 +12,11 @@
 # limitations under the License.
 
 """
-This module is part of nmeta Data Plane Auxiliary Engine (DPAE)
+This module is part of the nmeta2 suite
+.
+It is provides control channel services between the nmeta
+Data Plane Auxiliary Engine (DPAE) and the OpenFlow controller
+using REST API calls
 """
 
 import logging
@@ -133,6 +137,7 @@ class ControlChannel(object):
                             "controller, "
                             "%s, %s, %s",
                             exc_type, exc_value, exc_traceback)
+            self.logger.info("    Is the controller app running???")
             return 0
         self.logger.info("Phase 1 Connect")
         if not r.status_code == 201:

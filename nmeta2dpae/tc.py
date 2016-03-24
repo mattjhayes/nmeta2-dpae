@@ -14,8 +14,7 @@
 #*** nmeta - Network Metadata - Policy Interpretation Class and Methods
 
 """
-This module is part of the nmeta suite running on top of Ryu SDN
-controller to provide network identity and flow metadata.
+This module is part of the nmeta2 suite
 .
 It provides an object for traffic classification
 and includes ingesting the policy from YAML and checking
@@ -94,9 +93,10 @@ class TC(object):
         #*** Initialise list for TC classifiers to run:
         self.classifiers = []
 
-        #*** Instantiate a flow object for classifiers to work with:
+        #*** Retrieve values for db connection for flow class to use:
         _mongo_addr = _config.get_value("mongo_addr")
         _mongo_port = _config.get_value("mongo_port")
+        #*** Instantiate a flow object for classifiers to work with:
         self.flow = flow.Flow(self.logger, _mongo_addr, _mongo_port)
 
     def classify_dpkt(self, pkt, pkt_receive_timestamp, if_name):
@@ -161,11 +161,17 @@ class TC(object):
             #*** Read packet into flow object for classifiers to work with:
             self.flow.ingest_packet(pkt, pkt_receive_timestamp)
 
+            #*** TEMP:
+            self.logger.debug("pkt=%s", pkt)
+
         #*** Check to see if we have any traffic classifiers to run:
         for tc_type, tc_name in self.classifiers:
             self.logger.debug("Checking packet against tc_type=%s tc_name=%s",
                                     tc_type, tc_name)
-            #*** TBD, do something here, pass it the flow object...
+            #*** Call particular classifiers here:
+            if tc_name == 'statistical_qos_bandwidth_1':
+                self._statistical_qos_bandwidth_1()
+
 
         return result
 
@@ -186,6 +192,11 @@ class TC(object):
         #*** Thresholds used in calculations:
         _max_packet_size_threshold = 1200
         _interpacket_ratio_threshold = 0.62
+
+        #*** TEMP DEBUG:
+        self.logger.debug("TCTCTCTC packet_count=%s finalised=%s",
+                            self.flow.packet_count, self.flow.finalised)
+        
         if self.flow.packet_count >= _max_packets and not self.flow.finalised:
             #*** Reached our maximum packet count so do some classification:
             self.logger.debug("Reached max packets count, finalising")

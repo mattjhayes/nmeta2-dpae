@@ -12,7 +12,9 @@
 # limitations under the License.
 
 """
-This module is part of nmeta Data Plane Auxiliary Engine (DPAE)
+This module is part of the nmeta2 suite
+.
+It provides packet sniffing services
 """
 
 import socket
