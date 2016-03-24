@@ -53,7 +53,10 @@ class Flow(object):
         flow.tcp_dst        # TCP dest port of latest packet in flow
         flow.packet_length  # Length in bytes of the current packet on wire
         flow.packet_direction   # c2s (client to server), s2c or unknown
+        flow.tcp_fin()      # True if TCP FIN flag is set in the current packet
         flow.tcp_syn()      # True if TCP SYN flag is set in the current packet
+        flow.tcp_rst()      # True if TCP RST flag is set in the current packet
+        flow.tcp_psh()      # True if TCP PSH flag is set in the current packet
 
         # Variables for the whole flow:
         flow.finalised      # A classification has been made
@@ -311,12 +314,29 @@ class Flow(object):
         else:
             return min_s2c
 
+    def tcp_fin(self):
+        """
+        Does the current packet have the TCP FIN flag set?
+        """
+        return (self.tcp_flags & dpkt.tcp.TH_FIN != 0)
+
     def tcp_syn(self):
         """
         Does the current packet have the TCP SYN flag set?
         """
         return (self.tcp_flags & dpkt.tcp.TH_SYN != 0)
 
+    def tcp_rst(self):
+        """
+        Does the current packet have the TCP RST flag set?
+        """
+        return (self.tcp_flags & dpkt.tcp.TH_RST != 0)
+
+    def tcp_psh(self):
+        """
+        Does the current packet have the TCP PSH flag set?
+        """
+        return (self.tcp_flags & dpkt.tcp.TH_PUSH != 0)
 
 #================== PRIVATE FUNCTIONS ==================
 

@@ -60,7 +60,7 @@ def test_flow():
     pkt3_timestamp = 1458782847.830426000
 
     #*** Flow 1 client to server payload 1
-    #  10.1.0.1 10.1.0.2 TCP 71 [TCP segment of a reassembled PDU]
+    #  10.1.0.1 10.1.0.2 TCP 71 [TCP segment of a reassembled PDU] [PSH + ACK]
     pkt4 = binascii.unhexlify("080027c8db910800272ad6dd08004510003919ff400040060cac0a0100010a010002a9210050c37250d39e5c9d9a801801c9143000000101080a005b4d59005b35ef4745540d0a")
     pkt4_timestamp = 1458782852.090698000
 
@@ -84,6 +84,16 @@ def test_flow():
     pkt_other = binascii.unhexlify("080027c8db910800272ad6dd08004510003c23df4000400602c90a0100010a010002a9240050ab094fe700000000a002721014330000020405b40402080a00726c380000000001030306")
     pkt_other_timestamp = 1458788913.014564000
 
+    #*** Flow 3 TCP FIN + ACK used to test flags:
+    # 10.1.0.2 10.1.0.1 TCP 66 http > 43302 [FIN, ACK] Seq=733 Ack=20 Win=28992 Len=0 TSval=9412661 TSecr=9417590
+    pkt_flow3 = binascii.unhexlify("0800272ad6dd080027c8db910800450000349e9a4000400688250a0100020a0100010050a92674c00c0659c96b07801101c51d1b00000101080a008fa035008fb376")
+    pkt_flow3_timestamp = 1458796588.143693000
+
+    #*** Flow 4 TCP RST + ACK used to test flags:
+    # 10.1.0.2 10.1.0.1 TCP 60 81 > 38331 [RST, ACK] Seq=1 Ack=1 Win=0 Len=0
+    pkt_flow4 = binascii.unhexlify("0800272ad6dd080027c8db91080045100028f819400040062ea20a0100020a010001005195bb0000000051a9e82350140000cbf20000000000000000")
+    pkt_flow4_timestamp = 1458797058.605055000
+
     #*** Packet lengths on the wire (null value for index 0):
     pkt_len = [0, 74, 74, 66, 71, 66, 162, 66]
 
@@ -106,6 +116,9 @@ def test_flow():
     assert flow.tcp_src == 43297
     assert flow.tcp_dst == 80
     assert flow.tcp_syn() == 1
+    assert flow.tcp_fin() == 0
+    assert flow.tcp_rst() == 0
+    assert flow.tcp_psh() == 0
     assert flow.packet_direction == 'c2s'
     assert flow.max_packet_size() == max(pkt_len[0:2])
 
@@ -119,7 +132,10 @@ def test_flow():
     assert flow.server == '10.1.0.2'
     assert flow.tcp_src == 80
     assert flow.tcp_dst == 43297
+    assert flow.tcp_fin() == 0
     assert flow.tcp_syn() == 1
+    assert flow.tcp_rst() == 0
+    assert flow.tcp_psh() == 0
     assert flow.packet_direction == 's2c'
     assert flow.max_packet_size() == max(pkt_len[0:3])
 
@@ -133,7 +149,10 @@ def test_flow():
     assert flow.server == '10.1.0.2'
     assert flow.tcp_src == 43297
     assert flow.tcp_dst == 80
+    assert flow.tcp_fin() == 0
     assert flow.tcp_syn() == 0
+    assert flow.tcp_rst() == 0
+    assert flow.tcp_psh() == 0
     assert flow.packet_direction == 'c2s'
     assert flow.max_packet_size() == max(pkt_len[0:4])
 
@@ -150,7 +169,10 @@ def test_flow():
     assert flow.server == '10.1.0.2'
     assert flow.tcp_src == 43297
     assert flow.tcp_dst == 80
+    assert flow.tcp_fin() == 0
     assert flow.tcp_syn() == 0
+    assert flow.tcp_rst() == 0
+    assert flow.tcp_psh() == 1
     assert flow.packet_direction == 'c2s'
     assert flow.max_packet_size() == max(pkt_len[0:5])
 
@@ -164,7 +186,10 @@ def test_flow():
     assert flow.server == '10.1.0.2'
     assert flow.tcp_src == 80
     assert flow.tcp_dst == 43297
+    assert flow.tcp_fin() == 0
     assert flow.tcp_syn() == 0
+    assert flow.tcp_rst() == 0
+    assert flow.tcp_psh() == 0
     assert flow.packet_direction == 's2c'
     assert flow.max_packet_size() == max(pkt_len[0:6])
 
@@ -178,7 +203,10 @@ def test_flow():
     assert flow.server == '10.1.0.2'
     assert flow.tcp_src == 80
     assert flow.tcp_dst == 43297
+    assert flow.tcp_fin() == 0
     assert flow.tcp_syn() == 0
+    assert flow.tcp_rst() == 0
+    assert flow.tcp_psh() == 1
     assert flow.packet_direction == 's2c'
     assert flow.max_packet_size() == max(pkt_len[0:7])
 
@@ -192,9 +220,27 @@ def test_flow():
     assert flow.server == '10.1.0.2'
     assert flow.tcp_src == 43297
     assert flow.tcp_dst == 80
+    assert flow.tcp_fin() == 0
     assert flow.tcp_syn() == 0
+    assert flow.tcp_rst() == 0
+    assert flow.tcp_psh() == 0
     assert flow.packet_direction == 'c2s'
     assert flow.max_packet_size() == max(pkt_len)
+
+    #*** Test Flow 3 packet for TCP FIN flag:
+    flow.ingest_packet(pkt_flow3, pkt_flow3_timestamp)
+    assert flow.tcp_fin() == 1
+    assert flow.tcp_syn() == 0
+    assert flow.tcp_rst() == 0
+    assert flow.tcp_psh() == 0
+
+    #*** Test Flow 4 packet for TCP RST flag:
+    flow.ingest_packet(pkt_flow4, pkt_flow4_timestamp)
+    assert flow.tcp_fin() == 0
+    assert flow.tcp_syn() == 0
+    assert flow.tcp_rst() == 1
+    assert flow.tcp_psh() == 0
+
 
 def mac_addr(address):
     """
