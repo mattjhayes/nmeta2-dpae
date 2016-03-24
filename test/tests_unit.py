@@ -105,6 +105,7 @@ def test_flow():
     assert flow.server == '10.1.0.2'
     assert flow.tcp_src == 43297
     assert flow.tcp_dst == 80
+    assert flow.tcp_syn() == 1
     assert flow.packet_direction == 'c2s'
     assert flow.max_packet_size() == max(pkt_len[0:2])
 
@@ -118,6 +119,7 @@ def test_flow():
     assert flow.server == '10.1.0.2'
     assert flow.tcp_src == 80
     assert flow.tcp_dst == 43297
+    assert flow.tcp_syn() == 1
     assert flow.packet_direction == 's2c'
     assert flow.max_packet_size() == max(pkt_len[0:3])
 
@@ -131,6 +133,7 @@ def test_flow():
     assert flow.server == '10.1.0.2'
     assert flow.tcp_src == 43297
     assert flow.tcp_dst == 80
+    assert flow.tcp_syn() == 0
     assert flow.packet_direction == 'c2s'
     assert flow.max_packet_size() == max(pkt_len[0:4])
 
@@ -147,6 +150,7 @@ def test_flow():
     assert flow.server == '10.1.0.2'
     assert flow.tcp_src == 43297
     assert flow.tcp_dst == 80
+    assert flow.tcp_syn() == 0
     assert flow.packet_direction == 'c2s'
     assert flow.max_packet_size() == max(pkt_len[0:5])
 
@@ -160,6 +164,7 @@ def test_flow():
     assert flow.server == '10.1.0.2'
     assert flow.tcp_src == 80
     assert flow.tcp_dst == 43297
+    assert flow.tcp_syn() == 0
     assert flow.packet_direction == 's2c'
     assert flow.max_packet_size() == max(pkt_len[0:6])
 
@@ -173,6 +178,7 @@ def test_flow():
     assert flow.server == '10.1.0.2'
     assert flow.tcp_src == 80
     assert flow.tcp_dst == 43297
+    assert flow.tcp_syn() == 0
     assert flow.packet_direction == 's2c'
     assert flow.max_packet_size() == max(pkt_len[0:7])
 
@@ -186,6 +192,7 @@ def test_flow():
     assert flow.server == '10.1.0.2'
     assert flow.tcp_src == 43297
     assert flow.tcp_dst == 80
+    assert flow.tcp_syn() == 0
     assert flow.packet_direction == 'c2s'
     assert flow.max_packet_size() == max(pkt_len)
 

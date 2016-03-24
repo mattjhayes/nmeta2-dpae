@@ -53,6 +53,7 @@ class Flow(object):
         flow.tcp_dst        # TCP dest port of latest packet in flow
         flow.packet_length  # Length in bytes of the current packet on wire
         flow.packet_direction   # c2s (client to server), s2c or unknown
+        flow.tcp_syn()      # True if TCP SYN flag is set in the current packet
 
         # Variables for the whole flow:
         flow.finalised      # A classification has been made
@@ -129,8 +130,8 @@ class Flow(object):
         self.packet_length = len(pkt)
         #*** Read into dpkt:
         eth = dpkt.ethernet.Ethernet(pkt)
-        eth_src = mac_addr(eth.src)
-        eth_dst = mac_addr(eth.dst)
+        eth_src = _mac_addr(eth.src)
+        eth_dst = _mac_addr(eth.dst)
         eth_type = eth.type
         #*** We only support IPv4 (TBD: add IPv6 support):
         if eth_type != 2048:
@@ -148,8 +149,9 @@ class Flow(object):
         tcp = ip.data
         self.tcp_src = tcp.sport
         self.tcp_dst = tcp.dport
+        self.tcp_flags = tcp.flags
         #*** Generate a hash unique to flow for packets in either direction
-        self.fcip_hash = hash_5tuple(self.ip_src, self.ip_dst, self.tcp_src,
+        self.fcip_hash = _hash_5tuple(self.ip_src, self.ip_dst, self.tcp_src,
                                         self.tcp_dst, proto)
         self.logger.debug("FCIP hash=%s", self.fcip_hash)
         #*** Check to see if we already know this identity:
@@ -309,6 +311,15 @@ class Flow(object):
         else:
             return min_s2c
 
+    def tcp_syn(self):
+        """
+        Does the current packet have the TCP SYN flag set?
+        """
+        return (self.tcp_flags & dpkt.tcp.TH_SYN != 0)
+
+
+#================== PRIVATE FUNCTIONS ==================
+
 def _is_tcp_syn(tcp_flags):
     """
     Passed a TCP flags object and return 1 if it
@@ -319,7 +330,7 @@ def _is_tcp_syn(tcp_flags):
     else:
         return 0
 
-def hash_5tuple(ip_A, ip_B, tp_src, tp_dst, proto):
+def _hash_5tuple(ip_A, ip_B, tp_src, tp_dst, proto):
     """
     Generate a predictable hash for the 5-tuple which is the
     same not matter which direction the traffic is travelling
@@ -343,7 +354,7 @@ def hash_5tuple(ip_A, ip_B, tp_src, tp_dst, proto):
     hash_5t.update(flow_tuple_as_string)
     return hash_5t.hexdigest()
 
-def mac_addr(address):
+def _mac_addr(address):
     """
     Convert a MAC address to a readable/printable string
     """
