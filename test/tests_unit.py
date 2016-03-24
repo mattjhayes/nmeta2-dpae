@@ -251,6 +251,7 @@ def test_flow():
     assert flow.tcp_ack() == 1
 
     #*** TBD: test flow.tcp_urg(), flow.tcp_ece(), flow.tcp_cwr()
+    #*** TBD: IPv6 tests
 
 def mac_addr(address):
     """

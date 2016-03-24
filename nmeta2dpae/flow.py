@@ -99,6 +99,7 @@ class Flow(object):
         self.ip_dst = 0
         self.tcp_src = 0
         self.tcp_dst = 0
+        self.tcp_flags = 0
 
         #*** Initialise flow variables:
         self.finalised = 0
@@ -322,49 +323,49 @@ class Flow(object):
         """
         Does the current packet have the TCP FIN flag set?
         """
-        return (self.tcp_flags & dpkt.tcp.TH_FIN != 0)
+        return self.tcp_flags & dpkt.tcp.TH_FIN != 0
 
     def tcp_syn(self):
         """
         Does the current packet have the TCP SYN flag set?
         """
-        return (self.tcp_flags & dpkt.tcp.TH_SYN != 0)
+        return self.tcp_flags & dpkt.tcp.TH_SYN != 0
 
     def tcp_rst(self):
         """
         Does the current packet have the TCP RST flag set?
         """
-        return (self.tcp_flags & dpkt.tcp.TH_RST != 0)
+        return self.tcp_flags & dpkt.tcp.TH_RST != 0
 
     def tcp_psh(self):
         """
         Does the current packet have the TCP PSH flag set?
         """
-        return (self.tcp_flags & dpkt.tcp.TH_PUSH != 0)
+        return self.tcp_flags & dpkt.tcp.TH_PUSH != 0
 
     def tcp_ack(self):
         """
         Does the current packet have the TCP ACK flag set?
         """
-        return (self.tcp_flags & dpkt.tcp.TH_ACK != 0)
+        return self.tcp_flags & dpkt.tcp.TH_ACK != 0
 
     def tcp_urg(self):
         """
         Does the current packet have the TCP URG flag set?
         """
-        return (self.tcp_flags & dpkt.tcp.TH_URG != 0)
+        return self.tcp_flags & dpkt.tcp.TH_URG != 0
 
     def tcp_ece(self):
         """
         Does the current packet have the TCP ECE flag set?
         """
-        return (self.tcp_flags & dpkt.tcp.TH_ECE != 0)
+        return self.tcp_flags & dpkt.tcp.TH_ECE != 0
 
     def tcp_cwr(self):
         """
         Does the current packet have the TCP CWR flag set?
         """
-        return (self.tcp_flags & dpkt.tcp.TH_CWR != 0)
+        return self.tcp_flags & dpkt.tcp.TH_CWR != 0
 
 #================== PRIVATE FUNCTIONS ==================
 

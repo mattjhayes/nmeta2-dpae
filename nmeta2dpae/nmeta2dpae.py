@@ -317,10 +317,11 @@ class DPAE(object):
                 #*** Send packet to tc for classification:
                 tc_result = self.tc.classify_dpkt(pkt, pkt_receive_timestamp,
                                                             if_name)
-                if tc_result:
-                    #*** Send via API to controller:
-                    controlchannel.tc_advise_controller(location_tc_classify,
-                                tc_result)
+                if 'type' in tc_result:
+                    if tc_result['type'] != 'none':
+                        #*** Send via API to controller:
+                        controlchannel.tc_advise_controller(
+                                            location_tc_classify, tc_result)
             else:
                 time.sleep(.01)
             #*** Check keepalive still valid:
@@ -329,11 +330,6 @@ class DPAE(object):
                         "interface=%s", if_name)
                 #*** Do a complete restart of the connection to the controller:
                 break
-
-        #*** Where results warrant it, pass them to the Controller
-        
-        pass
-
 
     def run(self):
         """

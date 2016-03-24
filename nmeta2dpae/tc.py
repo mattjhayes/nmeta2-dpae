@@ -108,7 +108,7 @@ class TC(object):
         Perform traffic classification on a packet
         using dpkt for packet parsing
         """
-        result = {'suppress': 0}
+        result = {'type': 'none', 'subtype': 'none', 'actions': {}}
         ip = 0
         udp = 0
         tcp = 0
@@ -170,10 +170,17 @@ class TC(object):
             self.logger.debug("Checking packet against tc_type=%s tc_name=%s",
                                     tc_type, tc_name)
             #*** Call particular classifiers here:
+            #***  TBD: update to accumulate actions for more than one
+            #***  classifier, currently will overwrite
             if tc_name == 'statistical_qos_bandwidth_1' and tcp:
-                result = self._statistical_qos_bandwidth_1()
+                result['actions'] = self._statistical_qos_bandwidth_1()
 
-        #*** Suppress Elephant flows (TBD, more than TCP...):
+        if result['actions']:
+            #*** We've received actions from a classifier so set type:
+            result['type'] = 'treatment'
+
+        #*** Suppress Elephant flows:
+        #***  TBD, do on more than just IPv4 TCP...:
         if tcp:
             if self.flow.packet_count >= self.suppress_tcp_pkt_count:
                 self.logger.debug("Suppressing TCP stream src_ip=%s "
@@ -182,8 +189,17 @@ class TC(object):
                                     self.flow.tcp_src,
                                     self.flow.ip_dst,
                                     self.flow.tcp_dst)
-                result['suppress'] = 1
-                
+                result['ip_A'] = self.flow.ip_src
+                result['ip_B'] = self.flow.ip_dst
+                result['proto'] = 'tcp'
+                result['tp_A'] = self.flow.tcp_src
+                result['tp_B'] = self.flow.tcp_dst
+                if result['type'] == 'none':
+                    result['type'] = 'suppress'
+                elif result['type'] == 'treatment':
+                    result['type'] = 'treatment+suppress'
+                else:
+                    self.logger.error("Unknown result type %s", result['type'])
 
         return result
 
@@ -210,7 +226,7 @@ class TC(object):
         #*** TEMP DEBUG:
         self.logger.debug("TCTCTCTC packet_count=%s finalised=%s",
                             self.flow.packet_count, self.flow.finalised)
-        
+
         if self.flow.packet_count >= _max_packets and not self.flow.finalised:
             #*** Reached our maximum packet count so do some classification:
             self.logger.debug("Reached max packets count, finalising")
@@ -242,7 +258,6 @@ class TC(object):
             self.logger.debug("Decided on actions %s", _actions)
 
         return _actions
-            
 
     def _parse_dns(self, dns_data, eth_src):
         """
