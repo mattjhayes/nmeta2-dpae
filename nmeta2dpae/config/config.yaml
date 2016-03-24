@@ -61,3 +61,5 @@ keepalive_retries: 3
 mongo_addr: localhost
 mongo_port: 27017
 #
+#========== Elephant Flow Suppression =================
+suppress_tcp_pkt_count: 15

@@ -93,7 +93,11 @@ class TC(object):
         #*** Initialise list for TC classifiers to run:
         self.classifiers = []
 
-        #*** Retrieve values for db connection for flow class to use:
+        #*** Retrieve config values for elephant flow suppression:
+        self.suppress_tcp_pkt_count = \
+                                    _config.get_value("suppress_tcp_pkt_count")
+
+        #*** Retrieve config values for flow class db connection to use:
         _mongo_addr = _config.get_value("mongo_addr")
         _mongo_port = _config.get_value("mongo_port")
         #*** Instantiate a flow object for classifiers to work with:
@@ -104,7 +108,7 @@ class TC(object):
         Perform traffic classification on a packet
         using dpkt for packet parsing
         """
-        result = {}
+        result = {'suppress': 0}
         ip = 0
         udp = 0
         tcp = 0
@@ -166,9 +170,20 @@ class TC(object):
             self.logger.debug("Checking packet against tc_type=%s tc_name=%s",
                                     tc_type, tc_name)
             #*** Call particular classifiers here:
-            if tc_name == 'statistical_qos_bandwidth_1':
-                self._statistical_qos_bandwidth_1()
+            if tc_name == 'statistical_qos_bandwidth_1' and tcp:
+                result = self._statistical_qos_bandwidth_1()
 
+        #*** Suppress Elephant flows (TBD, more than TCP...):
+        if tcp:
+            if self.flow.packet_count >= self.suppress_tcp_pkt_count:
+                self.logger.debug("Suppressing TCP stream src_ip=%s "
+                                    "src_port=%s dst_ip=%s dst_port=%s",
+                                    self.flow.ip_src,
+                                    self.flow.tcp_src,
+                                    self.flow.ip_dst,
+                                    self.flow.tcp_dst)
+                result['suppress'] = 1
+                
 
         return result
 
@@ -189,6 +204,8 @@ class TC(object):
         #*** Thresholds used in calculations:
         _max_packet_size_threshold = 1200
         _interpacket_ratio_threshold = 0.62
+
+        _actions = {}
 
         #*** TEMP DEBUG:
         self.logger.debug("TCTCTCTC packet_count=%s finalised=%s",
@@ -223,6 +240,9 @@ class TC(object):
                 #*** Doesn't look like bandwidth hog so default priority:
                 _actions = {'set_qos_tag': "QoS_treatment=default_priority"}
             self.logger.debug("Decided on actions %s", _actions)
+
+        return _actions
+            
 
     def _parse_dns(self, dns_data, eth_src):
         """

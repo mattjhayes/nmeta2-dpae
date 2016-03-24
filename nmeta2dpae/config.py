@@ -14,7 +14,11 @@
 #*** nmeta DPAE - Configuration file loading and access to values
 
 """
-This module is part of nmeta Data Plane Auxiliary Engine (DPAE).
+This module is part of the nmeta2 suite
+.
+It represents the configuration data for a
+Data Plane Auxiliary Engine (DPAE).
+.
 It expects a file called "config.yaml" to be in a subdirectory called
 config, and this file to contain properly formed YAML
 """
@@ -55,7 +59,8 @@ CONFIG_TEMPLATE = \
     'keepalive_interval': 1,
     'keepalive_retries': 3,
     'mongo_addr': 'localhost',
-    'mongo_port': 27017
+    'mongo_port': 27017,
+    'suppress_tcp_pkt_count': 12
 }
 
 class Config(object):

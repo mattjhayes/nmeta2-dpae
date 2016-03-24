@@ -57,6 +57,10 @@ class Flow(object):
         flow.tcp_syn()      # True if TCP SYN flag is set in the current packet
         flow.tcp_rst()      # True if TCP RST flag is set in the current packet
         flow.tcp_psh()      # True if TCP PSH flag is set in the current packet
+        flow.tcp_ack()      # True if TCP ACK flag is set in the current packet
+        flow.tcp_urg()      # True if TCP URG flag is set in the current packet
+        flow.tcp_ece()      # True if TCP ECE flag is set in the current packet
+        flow.tcp_cwr()      # True if TCP CWR flag is set in the current packet
 
         # Variables for the whole flow:
         flow.finalised      # A classification has been made
@@ -337,6 +341,30 @@ class Flow(object):
         Does the current packet have the TCP PSH flag set?
         """
         return (self.tcp_flags & dpkt.tcp.TH_PUSH != 0)
+
+    def tcp_ack(self):
+        """
+        Does the current packet have the TCP ACK flag set?
+        """
+        return (self.tcp_flags & dpkt.tcp.TH_ACK != 0)
+
+    def tcp_urg(self):
+        """
+        Does the current packet have the TCP URG flag set?
+        """
+        return (self.tcp_flags & dpkt.tcp.TH_URG != 0)
+
+    def tcp_ece(self):
+        """
+        Does the current packet have the TCP ECE flag set?
+        """
+        return (self.tcp_flags & dpkt.tcp.TH_ECE != 0)
+
+    def tcp_cwr(self):
+        """
+        Does the current packet have the TCP CWR flag set?
+        """
+        return (self.tcp_flags & dpkt.tcp.TH_CWR != 0)
 
 #================== PRIVATE FUNCTIONS ==================
 
