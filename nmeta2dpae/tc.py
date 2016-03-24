@@ -224,8 +224,8 @@ class TC(object):
         _actions = {}
 
         #*** TEMP DEBUG:
-        self.logger.debug("TCTCTCTC packet_count=%s finalised=%s",
-                            self.flow.packet_count, self.flow.finalised)
+        #self.logger.debug("TCTCTCTC packet_count=%s finalised=%s",
+        #                    self.flow.packet_count, self.flow.finalised)
 
         if self.flow.packet_count >= _max_packets and not self.flow.finalised:
             #*** Reached our maximum packet count so do some classification:

@@ -191,9 +191,12 @@ class Flow(object):
             self.packet_count = 1
 
         elif self.fcip_doc['finalised']:
-            #*** The flow is already finalised so do nothing:
-            pass
-
+            #*** The flow is already finalised just increment packet count:
+            self.fcip_doc['packet_count'] += 1
+            #*** Write updated FCIP data back to database:
+            db_result = self.fcip.update_one({'hash': self.fcip_hash},
+                {'$set': {'packet_count': self.fcip_doc['packet_count']},})
+            self.packet_count = self.fcip_doc['packet_count']
         else:
             #*** We've found the flow in the FCIP database, now update it:
             self.logger.debug("FCIP: found existing record %s", self.fcip_doc)
