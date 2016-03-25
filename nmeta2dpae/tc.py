@@ -198,12 +198,6 @@ class TC(object):
                                     self.flow.tcp_src,
                                     self.flow.ip_dst,
                                     self.flow.tcp_dst)
-                result['ip_A'] = self.flow.ip_src
-                result['ip_B'] = self.flow.ip_dst
-                result['proto'] = 'tcp'
-                result['tp_A'] = self.flow.tcp_src
-                result['tp_B'] = self.flow.tcp_dst
-                result['flow_packets'] = self.flow.packet_count
                 if result['type'] == 'none':
                     result['type'] = 'suppress'
                 elif result['type'] == 'treatment':
@@ -211,13 +205,14 @@ class TC(object):
                 else:
                     self.logger.error("Unknown result type %s", result['type'])
 
-        else:
-            if tcp:
-                #*** TEMP:
-                self.logger.debug("not suppressing, packet_count=%s, "
-                                "suppress_flow_pkt_count_initial=%s",
-                                self.flow.packet_count,
-                                self.suppress_flow_pkt_count_initial)
+        if result['type'] != 'none':
+            #*** Add context to result:
+            result['ip_A'] = self.flow.ip_src
+            result['ip_B'] = self.flow.ip_dst
+            result['proto'] = 'tcp'
+            result['tp_A'] = self.flow.tcp_src
+            result['tp_B'] = self.flow.tcp_dst
+            result['flow_packets'] = self.flow.packet_count
 
         return result
 
@@ -240,10 +235,6 @@ class TC(object):
         _interpacket_ratio_threshold = 0.62
 
         _actions = {}
-
-        #*** TEMP DEBUG:
-        #self.logger.debug("TCTCTCTC packet_count=%s finalised=%s",
-        #                    self.flow.packet_count, self.flow.finalised)
 
         if self.flow.packet_count >= _max_packets and not self.flow.finalised:
             #*** Reached our maximum packet count so do some classification:
