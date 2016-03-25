@@ -64,6 +64,10 @@ class Flow(object):
 
         # Variables for the whole flow:
         flow.finalised      # A classification has been made
+        flow.suppressed     # The flow packet count number when
+                            #  a request was made to controller to not see
+                            #  further packets in this flow. 0 is
+                            #  not suppressed
         flow.packet_count   # Unique packets registered for the flow
         flow.client         # The IP that is the originator of the TCP
                             #  session (if known, otherwise 0)
@@ -110,6 +114,7 @@ class Flow(object):
         self.client = 0
         self.server = 0
         self.packet_direction = 'unknown'
+        self.suppressed = 0
 
         #*** Start mongodb:
         self.logger.info("Connecting to mongodb database...")
@@ -175,16 +180,21 @@ class Flow(object):
                 self.packet_direction = 'c2s'
 
             #*** Neither direction found, so add to FCIP database:
-            self.fcip_doc = {'hash': self.fcip_hash, 'ip_A': self.ip_src,
-                        'ip_B': self.ip_dst, 'port_A': self.tcp_src,
+            self.fcip_doc = {'hash': self.fcip_hash,
+                        'ip_A': self.ip_src,
+                        'ip_B': self.ip_dst,
+                        'port_A': self.tcp_src,
                         'port_B': self.tcp_dst,
-                        'proto': proto, 'finalised': 0, 'packet_count': 1,
+                        'proto': proto,
+                        'finalised': 0,
+                        'packet_count': 1,
                         'packet_timestamps': [pkt_receive_timestamp,],
                         'tcp_flags': [tcp.flags,],
                         'packet_lengths': [self.packet_length,],
                         'client': self.client,
                         'server': self.server,
-                        'packet_directions': ['c2s',]}
+                        'packet_directions': ['c2s',],
+                        'suppressed': 0}
             self.logger.debug("FCIP: Adding record for %s to DB",
                                                 self.fcip_doc)
             db_result = self.fcip.insert_one(self.fcip_doc)
@@ -197,6 +207,7 @@ class Flow(object):
             db_result = self.fcip.update_one({'hash': self.fcip_hash},
                 {'$set': {'packet_count': self.fcip_doc['packet_count']},})
             self.packet_count = self.fcip_doc['packet_count']
+
         else:
             #*** We've found the flow in the FCIP database, now update it:
             self.logger.debug("FCIP: found existing record %s", self.fcip_doc)
@@ -278,6 +289,17 @@ class Flow(object):
             return max_c2s
         else:
             return max_s2c
+
+    def set_suppress_flow(self):
+        """
+        Set the suppressed attribute in the flow database
+        object to the current packet count so that future
+        suppressions of the same flow can be backed off
+        to prevent overwhelming the controller
+        """
+        self.suppressed = self.packet_count
+        self.fcip.update_one({'hash': self.fcip_hash},
+                                {'$set': {'suppressed': self.suppressed},})
 
     def min_interpacket_interval(self):
         """

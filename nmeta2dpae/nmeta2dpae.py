@@ -322,6 +322,7 @@ class DPAE(object):
                         #*** Send via API to controller:
                         controlchannel.tc_advise_controller(
                                             location_tc_classify, tc_result)
+
             else:
                 time.sleep(.01)
             #*** Check keepalive still valid:

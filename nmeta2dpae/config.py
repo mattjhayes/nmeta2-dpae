@@ -60,7 +60,8 @@ CONFIG_TEMPLATE = \
     'keepalive_retries': 3,
     'mongo_addr': 'localhost',
     'mongo_port': 27017,
-    'suppress_tcp_pkt_count': 12
+    'suppress_flow_pkt_count_initial': 8,
+    'suppress_flow_pkt_count_backoff': 500
 }
 
 class Config(object):

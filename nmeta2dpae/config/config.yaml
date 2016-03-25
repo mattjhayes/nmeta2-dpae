@@ -62,4 +62,11 @@ mongo_addr: localhost
 mongo_port: 27017
 #
 #========== Elephant Flow Suppression =================
-suppress_tcp_pkt_count: 15
+#*** Number of packets in a flow before sending suppression request to
+#***  controller so that it can install a FE to prevent further packets to DPAE
+suppress_flow_pkt_count_initial: 8
+#
+#*** Number of packets after sending a suppression request for a flow to wait
+#***  before sending a follow up request in case the first one was lost
+suppress_flow_pkt_count_backoff: 500
+

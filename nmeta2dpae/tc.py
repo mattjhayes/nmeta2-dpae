@@ -94,8 +94,10 @@ class TC(object):
         self.classifiers = []
 
         #*** Retrieve config values for elephant flow suppression:
-        self.suppress_tcp_pkt_count = \
-                                    _config.get_value("suppress_tcp_pkt_count")
+        self.suppress_flow_pkt_count_initial = \
+                           _config.get_value("suppress_flow_pkt_count_initial")
+        self.suppress_flow_pkt_count_backoff = \
+                           _config.get_value("suppress_flow_pkt_count_backoff")
 
         #*** Retrieve config values for flow class db connection to use:
         _mongo_addr = _config.get_value("mongo_addr")
@@ -181,8 +183,15 @@ class TC(object):
 
         #*** Suppress Elephant flows:
         #***  TBD, do on more than just IPv4 TCP...:
-        if tcp:
-            if self.flow.packet_count >= self.suppress_tcp_pkt_count:
+        if tcp and self.flow.packet_count >= \
+                                self.suppress_flow_pkt_count_initial:
+            #*** Only suppress if there's been sufficient backoff since 
+            #***  any previous suppressions to prevent overload of ctrlr
+            if not self.flow.suppressed or (self.flow.packet_count > \
+                            (self.flow.suppressed + \
+                            self.suppress_flow_pkt_count_backoff)):
+                #*** Update the suppress counter on the flow:
+                self.flow.set_suppress_flow()
                 self.logger.debug("Suppressing TCP stream src_ip=%s "
                                     "src_port=%s dst_ip=%s dst_port=%s",
                                     self.flow.ip_src,
@@ -194,12 +203,21 @@ class TC(object):
                 result['proto'] = 'tcp'
                 result['tp_A'] = self.flow.tcp_src
                 result['tp_B'] = self.flow.tcp_dst
+                result['flow_packets'] = self.flow.packet_count
                 if result['type'] == 'none':
                     result['type'] = 'suppress'
                 elif result['type'] == 'treatment':
                     result['type'] = 'treatment+suppress'
                 else:
                     self.logger.error("Unknown result type %s", result['type'])
+
+        else:
+            if tcp:
+                #*** TEMP:
+                self.logger.debug("not suppressing, packet_count=%s, "
+                                "suppress_flow_pkt_count_initial=%s",
+                                self.flow.packet_count,
+                                self.suppress_flow_pkt_count_initial)
 
         return result
 
