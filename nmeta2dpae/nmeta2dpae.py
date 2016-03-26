@@ -34,8 +34,6 @@ import tc
 import sniff
 import tc_policy_dpae
 
-import sys
-
 #*** Multiprocessing:
 import multiprocessing
 
@@ -218,7 +216,7 @@ class DPAE(object):
                         "interface=%s", if_name)
                 phase4_services = self.controlchannel.phase4(location,
                                         if_name)
-            
+
             #*** Start Services:
             if 'traffic_classification' in phase4_services:
                 self.logger.info("Phase 4 Traffic Classification service "
@@ -298,7 +296,7 @@ class DPAE(object):
         #***  that controller is alive and session is still valid:
         keepalive_ev = multiprocessing.Event()
         location_keepalive = location + '/keepalive/'
-        keepalive_child = multiprocessing.Process(name='keepalive', 
+        keepalive_child = multiprocessing.Process(name='keepalive',
                                  target=controlchannel.keepalive,
                                  args=(keepalive_ev, location_keepalive,
                                  if_name))
@@ -318,6 +316,8 @@ class DPAE(object):
                 if 'type' in tc_result:
                     if tc_result['type'] != 'none':
                         #*** Send via API to controller:
+                        self.logger.debug("Sending result to controller: %s",
+                                                            tc_result)
                         controlchannel.tc_advise_controller(
                                             location_tc_classify, tc_result)
 

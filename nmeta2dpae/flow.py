@@ -166,7 +166,6 @@ class Flow(object):
         #*** Generate a hash unique to flow for packets in either direction
         self.fcip_hash = _hash_5tuple(self.ip_src, self.ip_dst, self.tcp_src,
                                         self.tcp_dst, proto)
-        self.logger.debug("FCIP hash=%s", self.fcip_hash)
         #*** Check to see if we already know this identity:
         db_data = {'hash': self.fcip_hash}
         self.fcip_doc = self.fcip.find_one(db_data)

@@ -110,7 +110,7 @@ class TC(object):
         Perform traffic classification on a packet
         using dpkt for packet parsing
         """
-        result = {'type': 'none', 'subtype': 'none', 'actions': {}}
+        result = {'type': 'none', 'subtype': 'none', 'actions': 0}
         ip = 0
         udp = 0
         tcp = 0
@@ -168,13 +168,15 @@ class TC(object):
 
         #*** Check to see if we have any traffic classifiers to run:
         for tc_type, tc_name in self.classifiers:
-            self.logger.debug("Checking packet against tc_type=%s tc_name=%s",
-                                    tc_type, tc_name)
+            #self.logger.debug("Checking packet against tc_type=%s tc_name=%s",
+            #                        tc_type, tc_name)
             #*** Call particular classifiers here:
             #***  TBD: update to accumulate actions for more than one
             #***  classifier, currently will overwrite
             if tc_name == 'statistical_qos_bandwidth_1' and tcp:
-                result['actions'] = self._statistical_qos_bandwidth_1()
+                result['qos_treatment'] = self._statistical_qos_bandwidth_1()
+                if result['qos_treatment']:
+                    result['actions'] = 1
 
         if result['actions']:
             #*** We've received actions from a classifier so set type:
@@ -227,12 +229,12 @@ class TC(object):
         """
         #*** Maximum packets to accumulate in a flow before making a
         #***  classification:
-        _max_packets = 5
+        _max_packets = 6
         #*** Thresholds used in calculations:
         _max_packet_size_threshold = 1200
         _interpacket_ratio_threshold = 0.62
 
-        _actions = {}
+        _actions = ''
 
         if self.flow.packet_count >= _max_packets and not self.flow.finalised:
             #*** Reached our maximum packet count so do some classification:
@@ -258,10 +260,10 @@ class TC(object):
             if (_max_packet_size > _max_packet_size_threshold and
                             _interpacket_ratio < _interpacket_ratio_threshold):
                 #*** This traffic looks like a bandwidth hog so constrain it:
-                _actions = {'set_qos_tag': "QoS_treatment=constrained_bw"}
+                _actions = 'constrained_bw'
             else:
                 #*** Doesn't look like bandwidth hog so default priority:
-                _actions = {'set_qos_tag': "QoS_treatment=default_priority"}
+                _actions = 'default_priority'
             self.logger.debug("Decided on actions %s", _actions)
 
         return _actions
