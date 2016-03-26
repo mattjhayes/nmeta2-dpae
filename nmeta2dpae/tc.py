@@ -123,7 +123,6 @@ class TC(object):
         self.logger.debug("packet src=%s dst=%s ethtype=%s", eth_src,
                 eth_dst, eth_type)
         if eth_type == 2048:
-            self.logger.debug("its IP, eth_type is %s", eth_type)
             ip = eth.data
             ip_src = socket.inet_ntop(socket.AF_INET, ip.src)
             ip_dst = socket.inet_ntop(socket.AF_INET, ip.dst)
@@ -226,7 +225,6 @@ class TC(object):
         by __init__ and returns a dictionary of results.
         Only works on TCP.
         """
-        self.logger.debug("In _statistical_qos_bandwidth_1")
         #*** Maximum packets to accumulate in a flow before making a
         #***  classification:
         _max_packets = 5

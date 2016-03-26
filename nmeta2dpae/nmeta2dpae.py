@@ -311,8 +311,6 @@ class DPAE(object):
         while not finished:
             #*** Get result:
             if not sniff_queue.empty():
-                self.logger.debug("Reading packet off queue from child "
-                                    "sniff process...")
                 pkt, pkt_receive_timestamp = sniff_queue.get()
                 #*** Send packet to tc for classification:
                 tc_result = self.tc.classify_dpkt(pkt, pkt_receive_timestamp,
