@@ -120,8 +120,7 @@ class TC(object):
         eth_src = mac_addr(eth.src)
         eth_dst = mac_addr(eth.dst)
         eth_type = eth.type
-        self.logger.debug("packet src=%s dst=%s ethtype=%s", eth_src,
-                eth_dst, eth_type)
+
         if eth_type == 2048:
             ip = eth.data
             ip_src = socket.inet_ntop(socket.AF_INET, ip.src)
@@ -131,14 +130,12 @@ class TC(object):
                 tcp = ip.data
                 tcp_src = tcp.sport
                 tcp_dst = tcp.dport
-                self.logger.debug("It's TCP, src_port=%s dst_port=%s", tcp_src,
-                                        tcp_dst)
+ 
             elif ip.p == 17:
                 udp = ip.data
                 udp_src = udp.sport
                 udp_dst = udp.dport
-                self.logger.debug("It's UDP, src_port=%s dst_port=%s", udp_src,
-                                        udp_dst)
+ 
         #*** Check for Identity Indicators:
         if udp:
             if udp_src == 53 or udp_dst == 53:
