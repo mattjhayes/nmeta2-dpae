@@ -263,7 +263,9 @@ class Flow(object):
     def max_interpacket_interval(self):
         """
         Return the size of the largest inter-packet time interval
-        in the flow (assessed per direction in flow)
+        in the flow (assessed per direction in flow).
+        .
+        Note: slightly inaccurate due to floating point rounding.
         """
         max_c2s = 0
         max_s2c = 0
@@ -299,21 +301,12 @@ class Flow(object):
         else:
             return max_s2c
 
-    def set_suppress_flow(self):
-        """
-        Set the suppressed attribute in the flow database
-        object to the current packet count so that future
-        suppressions of the same flow can be backed off
-        to prevent overwhelming the controller
-        """
-        self.suppressed = self.packet_count
-        self.fcip.update_one({'hash': self.fcip_hash},
-                                {'$set': {'suppressed': self.suppressed},})
-
     def min_interpacket_interval(self):
         """
         Return the size of the smallest inter-packet time interval
         in the flow (assessed per direction in flow)
+        .
+        Note: slightly inaccurate due to floating point rounding.
         """
         min_c2s = 0
         min_s2c = 0
@@ -352,6 +345,17 @@ class Flow(object):
             return min_c2s
         else:
             return min_s2c
+
+    def set_suppress_flow(self):
+        """
+        Set the suppressed attribute in the flow database
+        object to the current packet count so that future
+        suppressions of the same flow can be backed off
+        to prevent overwhelming the controller
+        """
+        self.suppressed = self.packet_count
+        self.fcip.update_one({'hash': self.fcip_hash},
+                                {'$set': {'suppressed': self.suppressed},})
 
     def tcp_fin(self):
         """

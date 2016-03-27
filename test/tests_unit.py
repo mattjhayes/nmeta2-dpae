@@ -42,6 +42,12 @@ logger = logging.getLogger(__name__)
 
 #*** Test Switches and Switch classes that abstract OpenFlow switches:
 def test_flow():
+    """
+    Note: no testing of max_interpacket_interval and
+    min_interpacket_interval as they become imprecise due
+    to floating point and when tried using decimal module
+    found that would not serialise into Pymongo db.
+    """
     #*** Packets for testing:
 
     #*** Flow 1 TCP handshake packet 1
