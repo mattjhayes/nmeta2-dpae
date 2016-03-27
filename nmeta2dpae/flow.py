@@ -43,6 +43,10 @@ class Flow(object):
     can use to make determinations without having to understand
     implementations such as database lookups etc.
 
+    Be aware that this module is not very mature yet. It does not
+    cover some basic corner cases such as packet retransmissions and
+    out of order or missing packets.
+
     Variables available for Classifiers (assumes class instantiated as
     an object called 'flow'):
 
@@ -51,8 +55,10 @@ class Flow(object):
         flow.ip_dst         # IP dest address of latest packet in flow
         flow.tcp_src        # TCP source port of latest packet in flow
         flow.tcp_dst        # TCP dest port of latest packet in flow
-        flow.packet_length  # Length in bytes of the current packet on wire
-        flow.packet_direction   # c2s (client to server), s2c or unknown
+        flow.tcp_seq        # TCP sequence number of latest packet in flow
+        flow.tcp_acq        # TCP acknowledgement number of latest
+                            #  packet in flow
+
         flow.tcp_fin()      # True if TCP FIN flag is set in the current packet
         flow.tcp_syn()      # True if TCP SYN flag is set in the current packet
         flow.tcp_rst()      # True if TCP RST flag is set in the current packet
@@ -61,6 +67,8 @@ class Flow(object):
         flow.tcp_urg()      # True if TCP URG flag is set in the current packet
         flow.tcp_ece()      # True if TCP ECE flag is set in the current packet
         flow.tcp_cwr()      # True if TCP CWR flag is set in the current packet
+        flow.packet_length  # Length in bytes of the current packet on wire
+        flow.packet_direction   # c2s (client to server), s2c or unknown
 
         # Variables for the whole flow:
         flow.finalised      # A classification has been made
@@ -162,6 +170,8 @@ class Flow(object):
         tcp = ip.data
         self.tcp_src = tcp.sport
         self.tcp_dst = tcp.dport
+        self.tcp_seq = tcp.seq
+        self.tcp_acq = tcp.ack
         self.tcp_flags = tcp.flags
         #*** Generate a hash unique to flow for packets in either direction
         self.fcip_hash = _hash_5tuple(self.ip_src, self.ip_dst, self.tcp_src,

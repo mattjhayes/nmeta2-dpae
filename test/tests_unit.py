@@ -115,6 +115,8 @@ def test_flow():
     assert flow.server == '10.1.0.2'
     assert flow.tcp_src == 43297
     assert flow.tcp_dst == 80
+    assert flow.tcp_seq == 3279048914
+    assert flow.tcp_acq == 0
     assert flow.tcp_syn() == 1
     assert flow.tcp_fin() == 0
     assert flow.tcp_rst() == 0
@@ -133,6 +135,8 @@ def test_flow():
     assert flow.server == '10.1.0.2'
     assert flow.tcp_src == 80
     assert flow.tcp_dst == 43297
+    assert flow.tcp_seq == 2656869785
+    assert flow.tcp_acq == 3279048915
     assert flow.tcp_fin() == 0
     assert flow.tcp_syn() == 1
     assert flow.tcp_rst() == 0
@@ -151,6 +155,8 @@ def test_flow():
     assert flow.server == '10.1.0.2'
     assert flow.tcp_src == 43297
     assert flow.tcp_dst == 80
+    assert flow.tcp_seq == 3279048915
+    assert flow.tcp_acq == 2656869786
     assert flow.tcp_fin() == 0
     assert flow.tcp_syn() == 0
     assert flow.tcp_rst() == 0
@@ -172,6 +178,8 @@ def test_flow():
     assert flow.server == '10.1.0.2'
     assert flow.tcp_src == 43297
     assert flow.tcp_dst == 80
+    assert flow.tcp_seq == 3279048915
+    assert flow.tcp_acq == 2656869786
     assert flow.tcp_fin() == 0
     assert flow.tcp_syn() == 0
     assert flow.tcp_rst() == 0
@@ -190,6 +198,8 @@ def test_flow():
     assert flow.server == '10.1.0.2'
     assert flow.tcp_src == 80
     assert flow.tcp_dst == 43297
+    assert flow.tcp_seq == 2656869786
+    assert flow.tcp_acq == 3279048920
     assert flow.tcp_fin() == 0
     assert flow.tcp_syn() == 0
     assert flow.tcp_rst() == 0
@@ -208,6 +218,8 @@ def test_flow():
     assert flow.server == '10.1.0.2'
     assert flow.tcp_src == 80
     assert flow.tcp_dst == 43297
+    assert flow.tcp_seq == 2656869786
+    assert flow.tcp_acq == 3279048920
     assert flow.tcp_fin() == 0
     assert flow.tcp_syn() == 0
     assert flow.tcp_rst() == 0
@@ -226,6 +238,8 @@ def test_flow():
     assert flow.server == '10.1.0.2'
     assert flow.tcp_src == 43297
     assert flow.tcp_dst == 80
+    assert flow.tcp_seq == 3279048920
+    assert flow.tcp_acq == 2656869882
     assert flow.tcp_fin() == 0
     assert flow.tcp_syn() == 0
     assert flow.tcp_rst() == 0
