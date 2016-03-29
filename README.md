@@ -36,3 +36,8 @@ Edit the config file `~/nmeta2dpae/nmeta2dpae/config/config.yaml` and update val
 * URL for nmeta2 under key `nmeta_controller_address`
 * Which interfaces should sniff under key `sniff_if_names`
 * MongoDB settings under keys `mongo_addr` and `mongo_port`
+
+## Create Custom Classifiers
+Custom classifiers can be installed into the `~/nmeta2dpae/nmeta2dpae/classifiers` directory.
+They operate per packet and are passed a flow class object that has variables and methods that are in the context of the current packet and the flow that it belongs to. Check out flow.py for more information.
+Custom classifiers are called by declaring them in main_policy.yaml in nmeta2 on the controller.
