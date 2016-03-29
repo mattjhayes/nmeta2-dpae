@@ -201,7 +201,7 @@ class TC(object):
             #*** Read packet into flow object for classifiers to work with:
             self.flow.ingest_packet(pkt, pkt_receive_timestamp)
 
-            #*** Run any dynamic classifiers:
+            #*** Run any custom classifiers:
             for classifier in self.classifiers:
                 result['qos_treatment'] = classifier.classifier(self.flow)
 

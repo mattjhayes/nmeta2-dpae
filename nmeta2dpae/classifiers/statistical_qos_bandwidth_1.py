@@ -14,7 +14,12 @@
 """
 This module is part of the nmeta2 suite
 .
-It defines a dynamic traffic classification classifier
+It defines a custom traffic classifier
+.
+To create your own custom classifier, copy this example to a new
+file in the same directory and update the code as required.
+Call it from nmeta by specifying the name of the file (without the
+.py) in main_policy.yaml
 .
 """
 
