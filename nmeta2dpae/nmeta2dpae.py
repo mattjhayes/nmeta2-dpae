@@ -265,9 +265,6 @@ class DPAE(object):
         self.tc.id_dns = self.tc_policy.get_id_flag(if_name, 'dns')
         self.tc.id_dhcp = self.tc_policy.get_id_flag(if_name, 'dhcp')
 
-        #*** Set local list of TC classifiers to run in tc class:
-        #self.tc.classifiers = self.tc_policy.get_tc_classifiers(if_name)
-
         #*** Set up TC classifiers to run in tc class:
         _classifiers = self.tc_policy.get_tc_classifiers(if_name)
         self.tc.instantiate_classifiers(_classifiers)
