@@ -28,18 +28,19 @@ Version 2.x Toulouse Code
 import logging
 import logging.handlers
 
+#*** General imports:
 import socket
-
+import sys
 import struct
 
 #*** Import dpkt for packet parsing:
 import dpkt
 
-#*** For performance tuning timing:
-import time
-
 #*** To represent TCP flows and their context:
 import flow
+
+#*** For importing custom classifiers:
+import importlib
 
 class TC(object):
     """
@@ -105,6 +106,42 @@ class TC(object):
         #*** Instantiate a flow object for classifiers to work with:
         self.flow = flow.Flow(self.logger, _mongo_addr, _mongo_port)
 
+    def instantiate_classifiers(self, _classifiers):
+        """
+        Dynamically import and instantiate classes for any
+        dynamic classifiers specified in the controller
+        nmeta2 main_policy.yaml
+        .
+        Passed a list of tuples of classifier type / classifer name
+        .
+        Classifier modules live in the 'classifiers' subdirectory
+        .
+        """
+        self.logger.debug("Loading dynamic classifiers into TC module")
+
+        for tc_type, module_name in _classifiers:
+            #*** Dynamically import and instantiate class from classifiers dir:
+            self.logger.debug("    Importing module type=%s module_name=%s",
+                                        tc_type, "classifiers." + module_name)
+            try:
+                module = importlib.import_module("classifiers." + module_name)
+            except:
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                self.logger.error("Failed to dynamically load classifier "
+                                    "module %s from classifiers subdirectory."
+                                    "Please check that module exists and alter"
+                                    " main_policy configuration in controller "
+                                    "nmeta2 configuration if required",
+                                    module_name)
+                self.logger.error("Exception is %s, %s, %s",
+                                            exc_type, exc_value, exc_traceback)
+                sys.exit("Exiting, please fix error...")
+
+            #*** Dynamically instantiate class 'Classifier':
+            self.logger.debug("    Instantiating module class")
+            class_ = getattr(module, 'Classifier')
+            self.classifiers.append(class_(self.logger))
+
     def classify_dpkt(self, pkt, pkt_receive_timestamp, if_name):
         """
         Perform traffic classification on a packet
@@ -130,12 +167,12 @@ class TC(object):
                 tcp = ip.data
                 tcp_src = tcp.sport
                 tcp_dst = tcp.dport
- 
+
             elif ip.p == 17:
                 udp = ip.data
                 udp_src = udp.sport
                 udp_dst = udp.dport
- 
+
         #*** Check for Identity Indicators:
         if udp:
             if udp_src == 53 or udp_dst == 53:
@@ -159,31 +196,24 @@ class TC(object):
             #*** ARP:
             return self._parse_arp(eth, eth_src)
 
+        #*** The following is TCP specific but shouldn't be... TBD...
         if tcp:
             #*** Read packet into flow object for classifiers to work with:
             self.flow.ingest_packet(pkt, pkt_receive_timestamp)
 
-        #*** Check to see if we have any traffic classifiers to run:
-        for tc_type, tc_name in self.classifiers:
-            #self.logger.debug("Checking packet against tc_type=%s tc_name=%s",
-            #                        tc_type, tc_name)
-            #*** Call particular classifiers here:
-            #***  TBD: update to accumulate actions for more than one
-            #***  classifier, currently will overwrite
-            if tc_name == 'statistical_qos_bandwidth_1' and tcp:
-                result['qos_treatment'] = self._statistical_qos_bandwidth_1()
-                if result['qos_treatment']:
-                    result['actions'] = 1
+            #*** Run any dynamic classifiers:
+            for classifier in self.classifiers:
+                result['qos_treatment'] = classifier.classifier(self.flow)
 
-        if result['actions']:
-            #*** We've received actions from a classifier so set type:
-            result['type'] = 'treatment'
+            if result['qos_treatment']:
+                result['actions'] = 1
+                result['type'] = 'treatment'
 
         #*** Suppress Elephant flows:
         #***  TBD, do on more than just IPv4 TCP...:
         if tcp and self.flow.packet_count >= \
                                 self.suppress_flow_pkt_count_initial:
-            #*** Only suppress if there's been sufficient backoff since 
+            #*** Only suppress if there's been sufficient backoff since
             #***  any previous suppressions to prevent overload of ctrlr
             if not self.flow.suppressed or (self.flow.packet_count > \
                             (self.flow.suppressed + \
@@ -213,57 +243,6 @@ class TC(object):
             result['flow_packets'] = self.flow.packet_count
 
         return result
-
-    def _statistical_qos_bandwidth_1(self):
-        """
-        A really basic statistical classifier to demonstrate ability
-        to differentiate 'bandwidth hog' flows from ones that are
-        more interactive so that appropriate classification metadata
-        can be passed to QoS for differential treatment.
-        This function works on the Flow class object that is instantiated
-        by __init__ and returns a dictionary of results.
-        Only works on TCP.
-        """
-        #*** Maximum packets to accumulate in a flow before making a
-        #***  classification:
-        _max_packets = 6
-        #*** Thresholds used in calculations:
-        _max_packet_size_threshold = 1200
-        _interpacket_ratio_threshold = 0.62
-
-        _actions = ''
-
-        if self.flow.packet_count >= _max_packets and not self.flow.finalised:
-            #*** Reached our maximum packet count so do some classification:
-            self.logger.debug("Reached max packets count, finalising")
-            self.flow.finalised = 1
-
-            #*** Call functions to get statistics to make decisions on:
-            _max_packet_size = self.flow.max_packet_size()
-            _max_interpacket_interval = self.flow.max_interpacket_interval()
-            _min_interpacket_interval = self.flow.min_interpacket_interval()
-
-            #*** Avoid possible divide by zero error:
-            if _max_interpacket_interval and _min_interpacket_interval:
-                #*** Ratio between largest directional interpacket delta and
-                #***  smallest. Use a ratio as it accounts for base RTT:
-                _interpacket_ratio = float(_min_interpacket_interval) / \
-                                            float(_max_interpacket_interval)
-            else:
-                _interpacket_ratio = 0
-            self.logger.debug("max_packet_size=%s interpacket_ratio=%s",
-                        _max_packet_size, _interpacket_ratio)
-            #*** Decide actions based on the statistics:
-            if (_max_packet_size > _max_packet_size_threshold and
-                            _interpacket_ratio < _interpacket_ratio_threshold):
-                #*** This traffic looks like a bandwidth hog so constrain it:
-                _actions = 'constrained_bw'
-            else:
-                #*** Doesn't look like bandwidth hog so default priority:
-                _actions = 'default_priority'
-            self.logger.debug("Decided on actions %s", _actions)
-
-        return _actions
 
     def _parse_dns(self, dns_data, eth_src):
         """

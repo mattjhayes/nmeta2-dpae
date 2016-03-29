@@ -266,7 +266,12 @@ class DPAE(object):
         self.tc.id_dhcp = self.tc_policy.get_id_flag(if_name, 'dhcp')
 
         #*** Set local list of TC classifiers to run in tc class:
-        self.tc.classifiers = self.tc_policy.get_tc_classifiers(if_name)
+        #self.tc.classifiers = self.tc_policy.get_tc_classifiers(if_name)
+
+        #*** Set up TC classifiers to run in tc class:
+        _classifiers = self.tc_policy.get_tc_classifiers(if_name)
+        self.tc.instantiate_classifiers(_classifiers)
+
         self.logger.debug("Set to run classifiers: %s", self.tc.classifiers)
 
         #*** Start a sniffer process:
@@ -304,7 +309,6 @@ class DPAE(object):
 
         #*** Loop reading the queue and passing packets to tc_policy
         finished = 0
-        result = 0
         location_tc_classify = location + '/services/tc/classify/'
         while not finished:
             #*** Get result:
