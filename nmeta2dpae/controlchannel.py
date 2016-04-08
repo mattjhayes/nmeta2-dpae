@@ -389,8 +389,9 @@ class ControlChannel(object):
         if str(uuid_dpae_response) != str(self.our_uuid):
             self.logger.error("tc_start response uuid_dpae mismatch")
             return 0
+
         #*** Success:
-        return 1
+        return api_response['mode']
 
     def tc_advise_controller(self, location, tc_result):
         """
