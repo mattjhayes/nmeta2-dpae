@@ -366,6 +366,8 @@ class ControlChannel(object):
                             exc_type, exc_value, exc_traceback)
             return 0
         if r.status_code != 200:
+            self.logger.error("Unexpected response from controller status=%s "
+                        "response=%s", r.status_code, r.text)
             return 0
 
         #*** Decode API response as JSON:
