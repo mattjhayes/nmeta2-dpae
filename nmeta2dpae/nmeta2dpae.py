@@ -27,6 +27,9 @@ import logging.handlers
 
 import time
 
+#*** For active mode packet sending:
+from socket import socket, AF_PACKET, SOCK_RAW
+
 #*** nmeta-dpae imports:
 import config
 import controlchannel
@@ -46,6 +49,9 @@ class DPAE(object):
         """
         Initialise the DPAE class
         """
+        #*** Version number for compatibility checks:
+        self.version = '0.2.0'
+
         #*** Instantiate config class which imports configuration file
         #*** config.yaml and provides access to keys/values:
         self.config = config.Config()
@@ -269,8 +275,6 @@ class DPAE(object):
         _classifiers = self.tc_policy.get_tc_classifiers(if_name)
         self.tc.instantiate_classifiers(_classifiers)
 
-        self.logger.debug("Set to run classifiers: %s", self.tc.classifiers)
-
         #*** Start a sniffer process:
         self.logger.info("Starting separate sniff process for TC")
         sniff_queue = multiprocessing.Queue()
@@ -284,12 +288,12 @@ class DPAE(object):
         #***  packets to us:
         self.logger.info("Tell Controller to start sending us packets")
         location_tc_state = location + '/services/tc/state/'
-        tc_running = 0
-        while not tc_running:
+        tc_mode = ""
+        while not tc_mode:
             self.logger.debug("Attempting to start TC with controller "
                                 "for int=%s", if_name)
-            tc_running = controlchannel.tc_start(location_tc_state)
-            if not tc_running:
+            tc_mode = controlchannel.tc_start(location_tc_state)
+            if not tc_mode:
                 #*** Setting state to run failed, retry after a bit...
                 self.logger.error("Failed to start TC on Controller."
                                     "Will retry...")
@@ -303,6 +307,10 @@ class DPAE(object):
                                  args=(keepalive_ev, location_keepalive,
                                  if_name))
         keepalive_child.start()
+
+        # TEMP:
+        s = socket(AF_PACKET, SOCK_RAW)
+        s.bind((if_name, 0))
 
         #*** Loop reading the queue and passing packets to tc_policy
         finished = 0
@@ -321,6 +329,11 @@ class DPAE(object):
                                                             tc_result)
                         controlchannel.tc_advise_controller(
                                             location_tc_classify, tc_result)
+                if tc_mode == 'active':
+                    #*** Active Mode: send the packet back to the switch:
+
+                    # TEMP:
+                    s.send(pkt)
 
             else:
                 time.sleep(.01)

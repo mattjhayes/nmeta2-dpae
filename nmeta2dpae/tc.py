@@ -203,9 +203,11 @@ class TC(object):
 
             #*** Run any custom classifiers:
             for classifier in self.classifiers:
-                result['qos_treatment'] = classifier.classifier(self.flow)
+                result_classifier = classifier.classifier(self.flow)
 
-            if result['qos_treatment']:
+            #*** TBD, this will need updating for more types of return actions:
+            if 'qos_treatment' in result_classifier:
+                result['qos_treatment'] = result_classifier['qos_treatment']
                 result['actions'] = 1
                 result['type'] = 'treatment'
 

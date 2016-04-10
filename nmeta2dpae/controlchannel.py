@@ -102,6 +102,7 @@ class ControlChannel(object):
             return JSONEncoder_olddefault(self, o)
         JSONEncoder.default = JSONEncoder_newdefault
         self.config = _config
+        self._nmeta = _nmeta
         self.sniff = sniff
 
         self.keepalive_interval = \
@@ -156,8 +157,8 @@ class ControlChannel(object):
         if not api_response.validate(['hostname_controller', 'uuid_dpae',
                                         'uuid_controller', 'dpae2ctrl_mac',
                                         'ctrl2dpae_mac', 'dpae_ethertype']):
-            self.logger.error("Validation error %s", dpae_req_body.error)
-            return ({'status': 400, 'msg': dpae_req_body.error})
+            self.logger.error("Validation error %s", api_response.error)
+            return ({'status': 400, 'msg': api_response.error})
 
         uuid_dpae_response = api_response['uuid_dpae']
         if str(uuid_dpae_response) != str(self.our_uuid):
@@ -351,7 +352,11 @@ class ControlChannel(object):
         need traffic classification
         """
         self.logger.debug("Sending API call to Controller to start TC")
-        json_start_tc = json.dumps({'tc_state': 'run'})
+        json_start_tc = json.dumps({'tc_state': 'run',
+                                    'dpae_version': self._nmeta.version,
+                                    'hostname_dpae': self.hostname,
+                                    'uuid_dpae': self.our_uuid,
+                                    'uuid_controller': self.uuid_controller})
         try:
             r = self.s.put(location, data=json_start_tc)
         except:
@@ -361,8 +366,32 @@ class ControlChannel(object):
                             exc_type, exc_value, exc_traceback)
             return 0
         if r.status_code != 200:
+            self.logger.error("Unexpected response from controller status=%s "
+                        "response=%s", r.status_code, r.text)
             return 0
-        return 1
+
+        #*** Decode API response as JSON:
+        api_response = JSON_Body(r.json())
+
+        if api_response.error:
+            self.logger.error("Bad JSON response for tc_start error=%s",
+                                api_response.error)
+            return 0
+
+        self.logger.debug("tc_start response body=%s", api_response.json)
+
+        #*** Validate required keys are present in JSON:
+        if not api_response.validate(['uuid_dpae', 'status', 'mode']):
+            self.logger.error("Validation error %s", api_response.error)
+            return 0
+        #*** Check has our UUID correct:
+        uuid_dpae_response = api_response['uuid_dpae']
+        if str(uuid_dpae_response) != str(self.our_uuid):
+            self.logger.error("tc_start response uuid_dpae mismatch")
+            return 0
+
+        #*** Success:
+        return api_response['mode']
 
     def tc_advise_controller(self, location, tc_result):
         """

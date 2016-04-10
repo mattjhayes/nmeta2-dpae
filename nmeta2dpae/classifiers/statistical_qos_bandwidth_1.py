@@ -21,6 +21,8 @@ file in the same directory and update the code as required.
 Call it from nmeta by specifying the name of the file (without the
 .py) in main_policy.yaml
 .
+Classifiers are called per packet, so performance is important
+.
 """
 
 class Classifier(object):
@@ -40,11 +42,11 @@ class Classifier(object):
         more interactive so that appropriate classification metadata
         can be passed to QoS for differential treatment.
         .
-        This function is passed a Flow class object that holds the
+        This method is passed a Flow class object that holds the
         current context of the flow
         .
-        It returns a string specifying the relevant QoS treatment to
-        take (or 0 if no action to take).
+        It returns a dictionary specifying a key/value of QoS treatment to
+        take (or not if no classification determination made).
         .
         Only works on TCP.
         """
@@ -55,7 +57,8 @@ class Classifier(object):
         _max_packet_size_threshold = 1200
         _interpacket_ratio_threshold = 0.3
 
-        _actions = ''
+        #*** Dictionary to hold classification results:
+        _results = {}
 
         if flow.packet_count >= _max_packets and not flow.finalised:
             #*** Reached our maximum packet count so do some classification:
@@ -81,10 +84,10 @@ class Classifier(object):
             if (_max_packet_size > _max_packet_size_threshold and
                             _interpacket_ratio < _interpacket_ratio_threshold):
                 #*** This traffic looks like a bandwidth hog so constrain it:
-                _actions = 'constrained_bw'
+                _results['qos_treatment'] = 'constrained_bw'
             else:
                 #*** Doesn't look like bandwidth hog so default priority:
-                _actions = 'default_priority'
-            self.logger.debug("Decided on actions %s", _actions)
+                _results['qos_treatment'] = 'default_priority'
+            self.logger.debug("Decided on results %s", _results)
 
-        return _actions
+        return _results
