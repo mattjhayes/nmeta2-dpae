@@ -310,7 +310,7 @@ class DPAE(object):
 
         # TEMP:
         s = socket(AF_PACKET, SOCK_RAW)
-        s.bind(("eth2", 0))
+        s.bind((if_name, 0))
 
         #*** Loop reading the queue and passing packets to tc_policy
         finished = 0
