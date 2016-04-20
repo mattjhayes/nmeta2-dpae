@@ -90,6 +90,12 @@ Set up alias in .bash_aliases. Sudo and edit the file by adding:
 alias nm2="sudo python ~/nmeta2dpae/nmeta2dpae/nmeta2dpae.py"
 ```
 
+### Re-read the Aliases:
+Read the aliases file in so that new command is available for use:
+```
+. ~/.bashrc
+```
+
 ### Edit Config
 Edit the config file `~/nmeta2dpae/nmeta2dpae/config/config.yaml` and update values as appropriate. You should check:
 * URL for nmeta2 under key `nmeta_controller_address`
