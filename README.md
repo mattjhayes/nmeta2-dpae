@@ -51,6 +51,7 @@ sudo apt-get install -y mongodb-org
 
 Add pymongo for a Python API into MongoDB:
 ```
+sudo apt-get install build-essential python-dev
 sudo pip install pymongo
 ```
 
