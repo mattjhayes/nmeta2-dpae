@@ -27,16 +27,31 @@ sudo pip install dpkt
 ```
 
 ### Install MongoDB
-Install MongoDB as per [their instructions](https://docs.mongodb.org/manual/tutorial/install-mongodb-on-ubuntu/)
+Install MongoDB as per [their instructions](https://docs.mongodb.org/manual/tutorial/install-mongodb-on-ubuntu/):
+
+import the MongoDB public GPG Key:
+```
+sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv EA312927
+```
+
+Create a list file for MongoDB:
+```
+echo "deb http://repo.mongodb.org/apt/ubuntu trusty/mongodb-org/3.2 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-3.2.list
+```
+
+Reload local package database:
+```
+sudo apt-get update
+```
+
+Install MongoDB:
+```
+sudo apt-get install -y mongodb-org
+```
 
 Add pymongo for a Python API into MongoDB:
 ```
 sudo pip install pymongo
-```
-
-Create a directory for the database:
-```
-sudo mkdir -p /data/db
 ```
 
 Turn on smallfiles to cope with small file system size:
