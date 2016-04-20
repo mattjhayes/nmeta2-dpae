@@ -315,8 +315,9 @@ class ControlChannel(object):
         sniff_ps.join(sniff_timeout)
 
         if sniff_ps.exitcode != 0:
-            self.logger.error("Phase 3 exception from sniff process")
-            return 0
+            self.logger.warning("Phase 3 exception from sniff process "
+                                "exitcode=%s", sniff_ps.exitcode)
+            #return 0
 
         return result
 
