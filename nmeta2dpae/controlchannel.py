@@ -267,7 +267,7 @@ class ControlChannel(object):
         """
         result = 0
         #*** Max time in seconds to wait for sniff process:
-        sniff_wait_time = 1
+        sniff_wait_time = 2
         sniff_timeout = 2
         sniff_timeout_ps = 10
 
