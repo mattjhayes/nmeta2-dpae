@@ -267,9 +267,9 @@ class ControlChannel(object):
         """
         result = 0
         #*** Max time in seconds to wait for sniff process:
-        sniff_wait_time = 6
-        sniff_timeout = 2
-        sniff_timeout_ps = 4
+        sniff_wait_time = 12
+        sniff_timeout = 20
+        sniff_timeout_ps = 10
 
         #*** Start sniffer process:
         self.logger.info("Starting separate sniff process")
@@ -314,9 +314,9 @@ class ControlChannel(object):
         queue.join_thread()
         sniff_ps.join(sniff_timeout)
 
-        if sniff_ps.exitcode != 0:
-            self.logger.warning("Phase 3 exception from sniff process "
-                                "exitcode=%s", sniff_ps.exitcode)
+        #if sniff_ps.exitcode != 0:
+           # self.logger.warning("Phase 3 exception from sniff process "
+           #                     "exitcode=%s", sniff_ps.exitcode)
             #return 0
 
         return result
