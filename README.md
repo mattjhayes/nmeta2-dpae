@@ -20,6 +20,11 @@ Install YAML ("YAML Ain't Markup Language") for parsing config and policy files:
 sudo apt-get install python-yaml
 ```
 
+Install pytest
+```
+sudo apt-get install python-pytest
+```
+
 ### Install dpkt Python Packet Library
 Install dpkt for parsing packets:
 ```
@@ -76,10 +81,14 @@ sudo service mongod start
 sudo pip install scapy
 ```
 
+### Install git:
+```
+sudo apt-get install git
+```
+
 ### Install nmetadpae
 Clone nmeta2dpae from GitHub:
 ```
-sudo apt-get install git
 cd
 git clone https://github.com/mattjhayes/nmeta2dpae.git
 ```
@@ -88,6 +97,7 @@ git clone https://github.com/mattjhayes/nmeta2dpae.git
 Set up alias in .bash_aliases. Sudo and edit the file by adding:
 ```
 alias nm2="sudo python ~/nmeta2dpae/nmeta2dpae/nmeta2dpae.py"
+alias nm2t="cd ~/nmeta2dpae/test/; py.test"
 ```
 
 ### Re-read the Aliases:
