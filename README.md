@@ -79,6 +79,7 @@ sudo pip install scapy
 ### Install nmetadpae
 Clone nmeta2dpae from GitHub:
 ```
+sudo apt-get install git
 cd
 git clone https://github.com/mattjhayes/nmeta2dpae.git
 ```
