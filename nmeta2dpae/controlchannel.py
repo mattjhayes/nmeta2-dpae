@@ -267,9 +267,9 @@ class ControlChannel(object):
         """
         result = 0
         #*** Max time in seconds to wait for sniff process:
-        sniff_wait_time = 3
-        sniff_timeout = 1
-        sniff_timeout_ps = 2
+        sniff_wait_time = 6
+        sniff_timeout = 2
+        sniff_timeout_ps = 4
 
         #*** Start sniffer process:
         self.logger.info("Starting separate sniff process")
