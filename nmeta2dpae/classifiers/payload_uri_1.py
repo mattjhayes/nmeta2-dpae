@@ -25,6 +25,9 @@ Classifiers are called per packet, so performance is important
 .
 """
 
+#*** Required for payload HTTP decode:
+import dpkt
+
 class Classifier(object):
     """
     A custom classifier module for import by nmeta2
@@ -50,7 +53,7 @@ class Classifier(object):
         """
         #*** Maximum packets to accumulate in a flow before making a
         #***  classification:
-        _max_packets = 7
+        _max_packets = 5
 
         #*** URI to match:
         _match_uri = 'foo'
@@ -67,13 +70,25 @@ class Classifier(object):
             self.logger.debug("Reached max packets count, finalising")
             flow.finalised = 1
 
-            #*** Decide actions based on the URI:
-            if TBD:
-                #*** Matched URI:
-                _results['qos_treatment'] = _qos_action
+            payload = flow.payload
+            self.logger.debug("Packet payload=%s", payload)
+
+            http = dpkt.http.Request(payload)
+
+            if http:
+                #*** Decide actions based on the URI:
+                if http.uri == _match_uri:
+                    #*** Matched URI:
+                    self.logger.debug("Matched HTTP uri=%s", http.uri)
+                    _results['qos_treatment'] = _qos_action
+                else:
+                    #*** Doesn't match URI:
+                    self.logger.debug("Did not match HTTP uri=%s", http.uri)
+                    _results['qos_treatment'] = _qos_action_no_match
+
+                self.logger.debug("Decided on results %s", _results)
+
             else:
-                #*** Doesn't match URI:
-                _results['qos_treatment'] = _qos_action_no_match
-            self.logger.debug("Decided on results %s", _results)
+                self.logger.debug("Not HTTP so ignoring")
 
         return _results

@@ -28,10 +28,14 @@ nmeta_dpae_logging_level_s: DEBUG
 sniff_logging_level_s: DEBUG
 controlplane_logging_level_s: DEBUG
 tc_logging_level_s: DEBUG
+tc_policy_dpae_logging_level_c: DEBUG
 #
 #========== CONSOLE LOGGING =========================
 #*** Set to 1 if want to log to console:
 console_log_enabled: 1
+#
+#*** Set to 1 if you want colorised logs in terminal:
+coloredlogs_enabled: 1
 #
 #*** Console Log Format:
 #console_format: "%(levelname)s: %(name)s %(funcName)s: %(message)s"
@@ -43,6 +47,7 @@ nmeta_dpae_logging_level_c: DEBUG
 sniff_logging_level_c: DEBUG
 controlplane_logging_level_c: DEBUG
 tc_logging_level_c: DEBUG
+tc_policy_dpae_logging_level_c: DEBUG
 requests_logging_level: CRITICAL
 #
 #========== SNIFFING CONFIG =========================

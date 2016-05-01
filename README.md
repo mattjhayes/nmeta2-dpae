@@ -20,6 +20,12 @@ Install YAML ("YAML Ain't Markup Language") for parsing config and policy files:
 sudo apt-get install python-yaml
 ```
 
+### Install coloredlogs
+Install coloredlogs to improve readability of terminal logs by colour-coding:
+```
+sudo pip install coloredlogs
+```
+
 ### Install dpkt Python Packet Library
 Install dpkt for parsing packets:
 ```
