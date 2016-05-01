@@ -28,7 +28,7 @@ nmeta_dpae_logging_level_s: DEBUG
 sniff_logging_level_s: DEBUG
 controlplane_logging_level_s: DEBUG
 tc_logging_level_s: DEBUG
-tc_policy_dpae_logging_level_c: DEBUG
+tc_policy_dpae_logging_level_s: DEBUG
 #
 #========== CONSOLE LOGGING =========================
 #*** Set to 1 if want to log to console:

@@ -70,10 +70,6 @@ class ControlChannel(object):
         self.logger.setLevel(logging.DEBUG)
         self.logger.propagate = False
 
-        #*** 'Colourise' the logs to make them easier to understand:
-        if _coloredlogs_enabled:
-            coloredlogs.install(level='DEBUG', logger=self.logger)
-
         #*** Syslog:
         if _syslog_enabled:
             #*** Log to syslog on host specified in config.yaml:
@@ -92,8 +88,12 @@ class ControlChannel(object):
             console_formatter = logging.Formatter(_console_format)
             self.console_handler.setFormatter(console_formatter)
             self.console_handler.setLevel(_logging_level_c)
-            #*** Add console log handler to logger:
-            self.logger.addHandler(self.console_handler)
+            if _coloredlogs_enabled:
+                #*** Colourise the logs to make them easier to understand:
+                coloredlogs.install(level=_logging_level_c, logger=self.logger)
+            else:
+                #*** Add console log handler to logger:
+                self.logger.addHandler(self.console_handler)
 
         #*** Set Python requests and urllib3 module logging levels:
         _logging_level_requests = _config.get_value \
