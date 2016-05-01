@@ -24,6 +24,7 @@ from the controller.
 
 import logging
 import logging.handlers
+import coloredlogs
 
 import time
 
@@ -67,11 +68,13 @@ class DPAE(object):
         _logfacility = self.config.get_value('logfacility')
         _syslog_format = self.config.get_value('syslog_format')
         _console_log_enabled = self.config.get_value('console_log_enabled')
+        _coloredlogs_enabled = self.config.get_value('coloredlogs_enabled')
         _console_format = self.config.get_value('console_format')
         #*** Set up Logging:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
         self.logger.propagate = False
+
         #*** Syslog:
         if _syslog_enabled:
             #*** Log to syslog on host specified in config.yaml:
@@ -90,8 +93,12 @@ class DPAE(object):
             console_formatter = logging.Formatter(_console_format)
             self.console_handler.setFormatter(console_formatter)
             self.console_handler.setLevel(_logging_level_c)
-            #*** Add console log handler to logger:
-            self.logger.addHandler(self.console_handler)
+            if _coloredlogs_enabled:
+                #*** Colourise the logs to make them easier to understand:
+                coloredlogs.install(level=_logging_level_c, logger=self.logger)
+            else:
+                #*** Add console log handler to logger:
+                self.logger.addHandler(self.console_handler)
 
         self.api_url = str(self.config.get_value('nmeta_controller_address'))
         self.api_port = str(self.config.get_value('nmeta_controller_port'))
@@ -308,9 +315,10 @@ class DPAE(object):
                                  if_name))
         keepalive_child.start()
 
-        # TEMP:
-        s = socket(AF_PACKET, SOCK_RAW)
-        s.bind((if_name, 0))
+        #*** For active mode:
+        if tc_mode == 'active':
+            send_socket = socket(AF_PACKET, SOCK_RAW)
+            send_socket.bind((if_name, 0))
 
         #*** Loop reading the queue and passing packets to tc_policy
         finished = 0
@@ -331,9 +339,7 @@ class DPAE(object):
                                             location_tc_classify, tc_result)
                 if tc_mode == 'active':
                     #*** Active Mode: send the packet back to the switch:
-
-                    # TEMP:
-                    s.send(pkt)
+                    send_socket.send(pkt)
 
             else:
                 time.sleep(.01)

@@ -29,6 +29,7 @@ import dpkt
 
 import logging
 import logging.handlers
+import coloredlogs
 
 #*** JSON:
 import json
@@ -66,11 +67,13 @@ class Sniff(object):
         _logfacility = _config.get_value('logfacility')
         _syslog_format = _config.get_value('syslog_format')
         _console_log_enabled = _config.get_value('console_log_enabled')
+        _coloredlogs_enabled = _config.get_value('coloredlogs_enabled')
         _console_format = _config.get_value('console_format')
         #*** Set up Logging:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
         self.logger.propagate = False
+
         #*** Syslog:
         if _syslog_enabled:
             #*** Log to syslog on host specified in config.yaml:
@@ -89,8 +92,13 @@ class Sniff(object):
             console_formatter = logging.Formatter(_console_format)
             self.console_handler.setFormatter(console_formatter)
             self.console_handler.setLevel(_logging_level_c)
-            #*** Add console log handler to logger:
-            self.logger.addHandler(self.console_handler)
+            if _coloredlogs_enabled:
+                #*** Colourise the logs to make them easier to understand:
+                coloredlogs.install(level=_logging_level_c, logger=self.logger)
+            else:
+                #*** Add console log handler to logger:
+                self.logger.addHandler(self.console_handler)
+
         #*** Update JSON to support UUID encoding:
         JSONEncoder_olddefault = JSONEncoder.default
         def JSONEncoder_newdefault(self, o):

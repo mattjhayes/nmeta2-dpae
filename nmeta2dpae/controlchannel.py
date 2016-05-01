@@ -19,8 +19,12 @@ Data Plane Auxiliary Engine (DPAE) and the OpenFlow controller
 using REST API calls
 """
 
+#*** Logging imports:
 import logging
 import logging.handlers
+import coloredlogs
+
+#*** General imports:
 import socket, sys
 import re
 import time
@@ -59,11 +63,13 @@ class ControlChannel(object):
         _logfacility = _config.get_value('logfacility')
         _syslog_format = _config.get_value('syslog_format')
         _console_log_enabled = _config.get_value('console_log_enabled')
+        _coloredlogs_enabled = _config.get_value('coloredlogs_enabled')
         _console_format = _config.get_value('console_format')
         #*** Set up Logging:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
         self.logger.propagate = False
+
         #*** Syslog:
         if _syslog_enabled:
             #*** Log to syslog on host specified in config.yaml:
@@ -82,8 +88,12 @@ class ControlChannel(object):
             console_formatter = logging.Formatter(_console_format)
             self.console_handler.setFormatter(console_formatter)
             self.console_handler.setLevel(_logging_level_c)
-            #*** Add console log handler to logger:
-            self.logger.addHandler(self.console_handler)
+            if _coloredlogs_enabled:
+                #*** Colourise the logs to make them easier to understand:
+                coloredlogs.install(level=_logging_level_c, logger=self.logger)
+            else:
+                #*** Add console log handler to logger:
+                self.logger.addHandler(self.console_handler)
 
         #*** Set Python requests and urllib3 module logging levels:
         _logging_level_requests = _config.get_value \
