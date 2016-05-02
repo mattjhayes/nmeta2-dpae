@@ -86,7 +86,7 @@ class TC(object):
             if _coloredlogs_enabled:
                 #*** Colourise the logs to make them easier to understand:
                 coloredlogs.install(level=_logging_level_c,
-                logger=self.logger, fmt=_console_format)
+                logger=self.logger, fmt=_console_format, datefmt='%H:%M:%S')
             else:
                 #*** Add console log handler to logger:
                 self.console_handler = logging.StreamHandler()
@@ -130,7 +130,7 @@ class TC(object):
 
         for tc_type, module_name in _classifiers:
             #*** Dynamically import and instantiate class from classifiers dir:
-            self.logger.debug("    Importing module type=%s module_name=%s",
+            self.logger.debug("Importing module type=%s module_name=%s",
                                         tc_type, "classifiers." + module_name)
             try:
                 module = importlib.import_module("classifiers." + module_name)
@@ -147,7 +147,7 @@ class TC(object):
                 sys.exit("Exiting, please fix error...")
 
             #*** Dynamically instantiate class 'Classifier':
-            self.logger.debug("    Instantiating module class")
+            self.logger.debug("Instantiating module class")
             class_ = getattr(module, 'Classifier')
             self.classifiers.append(class_(self.logger))
 
