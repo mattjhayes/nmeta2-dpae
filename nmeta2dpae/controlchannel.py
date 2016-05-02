@@ -84,15 +84,16 @@ class ControlChannel(object):
         #*** Console logging:
         if _console_log_enabled:
             #*** Log to the console:
-            self.console_handler = logging.StreamHandler()
-            console_formatter = logging.Formatter(_console_format)
-            self.console_handler.setFormatter(console_formatter)
-            self.console_handler.setLevel(_logging_level_c)
             if _coloredlogs_enabled:
                 #*** Colourise the logs to make them easier to understand:
-                coloredlogs.install(level=_logging_level_c, logger=self.logger)
+                coloredlogs.install(level=_logging_level_c,
+                logger=self.logger, fmt=_console_format, datefmt='%H:%M:%S')
             else:
                 #*** Add console log handler to logger:
+                self.console_handler = logging.StreamHandler()
+                console_formatter = logging.Formatter(_console_format)
+                self.console_handler.setFormatter(console_formatter)
+                self.console_handler.setLevel(_logging_level_c)
                 self.logger.addHandler(self.console_handler)
 
         #*** Set Python requests and urllib3 module logging levels:
@@ -119,6 +120,14 @@ class ControlChannel(object):
                         float(self.config.get_value('keepalive_interval'))
         self.keepalive_retries = \
                         int(self.config.get_value('keepalive_retries'))
+
+        #*** Get config parameters for join timings:
+        self.phase3_sniff_wait_time = \
+                        int(self.config.get_value('phase3_sniff_wait_time'))
+        self.phase3_sniff_join_timeout = \
+                    float(self.config.get_value('phase3_sniff_join_timeout'))
+        self.phase3_sniff_dc_timeout = \
+                        int(self.config.get_value('phase3_sniff_dc_timeout'))
 
     def phase1(self, api_base, if_name):
         """
@@ -276,18 +285,14 @@ class ControlChannel(object):
         confirmation of sniffing packets
         """
         result = 0
-        #*** Max time in seconds to wait for sniff process:
-        sniff_wait_time = 12
-        sniff_timeout = 20
-        sniff_timeout_ps = 10
 
         #*** Start sniffer process:
         self.logger.info("Starting separate sniff process")
         queue = multiprocessing.Queue()
         sniff_ps = multiprocessing.Process(target=self.sniff.discover_confirm,
                         args=(queue, if_name, dpae2ctrl_mac, ctrl2dpae_mac,
-                        dpae_ethertype, sniff_timeout_ps, self.our_uuid,
-                        self.uuid_controller))
+                        dpae_ethertype, self.phase3_sniff_dc_timeout,
+                        self.our_uuid, self.uuid_controller))
         sniff_ps.start()
 
         #*** Instruct controller to send confirmation packet:
@@ -308,7 +313,7 @@ class ControlChannel(object):
             return 0
 
         #*** Wait for a small amount of time:
-        time.sleep(sniff_wait_time)
+        time.sleep(self.phase3_sniff_wait_time)
 
         #*** Get result:
         if not queue.empty():
@@ -322,12 +327,7 @@ class ControlChannel(object):
         #*** Close the child sniff process down:
         queue.close()
         queue.join_thread()
-        sniff_ps.join(sniff_timeout)
-
-        #if sniff_ps.exitcode != 0:
-           # self.logger.warning("Phase 3 exception from sniff process "
-           #                     "exitcode=%s", sniff_ps.exitcode)
-            #return 0
+        sniff_ps.join(self.phase3_sniff_join_timeout)
 
         return result
 

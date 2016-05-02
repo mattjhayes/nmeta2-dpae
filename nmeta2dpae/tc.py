@@ -83,15 +83,16 @@ class TC(object):
         #*** Console logging:
         if _console_log_enabled:
             #*** Log to the console:
-            self.console_handler = logging.StreamHandler()
-            console_formatter = logging.Formatter(_console_format)
-            self.console_handler.setFormatter(console_formatter)
-            self.console_handler.setLevel(_logging_level_c)
             if _coloredlogs_enabled:
                 #*** Colourise the logs to make them easier to understand:
-                coloredlogs.install(level=_logging_level_c, logger=self.logger)
+                coloredlogs.install(level=_logging_level_c,
+                logger=self.logger, fmt=_console_format, datefmt='%H:%M:%S')
             else:
                 #*** Add console log handler to logger:
+                self.console_handler = logging.StreamHandler()
+                console_formatter = logging.Formatter(_console_format)
+                self.console_handler.setFormatter(console_formatter)
+                self.console_handler.setLevel(_logging_level_c)
                 self.logger.addHandler(self.console_handler)
 
         #*** Initialise Identity Harvest flags (they get set at DPAE join time)
@@ -129,7 +130,7 @@ class TC(object):
 
         for tc_type, module_name in _classifiers:
             #*** Dynamically import and instantiate class from classifiers dir:
-            self.logger.debug("    Importing module type=%s module_name=%s",
+            self.logger.debug("Importing module type=%s module_name=%s",
                                         tc_type, "classifiers." + module_name)
             try:
                 module = importlib.import_module("classifiers." + module_name)
@@ -146,7 +147,7 @@ class TC(object):
                 sys.exit("Exiting, please fix error...")
 
             #*** Dynamically instantiate class 'Classifier':
-            self.logger.debug("    Instantiating module class")
+            self.logger.debug("Instantiating module class")
             class_ = getattr(module, 'Classifier')
             self.classifiers.append(class_(self.logger))
 

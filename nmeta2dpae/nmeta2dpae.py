@@ -89,15 +89,16 @@ class DPAE(object):
         #*** Console logging:
         if _console_log_enabled:
             #*** Log to the console:
-            self.console_handler = logging.StreamHandler()
-            console_formatter = logging.Formatter(_console_format)
-            self.console_handler.setFormatter(console_formatter)
-            self.console_handler.setLevel(_logging_level_c)
             if _coloredlogs_enabled:
                 #*** Colourise the logs to make them easier to understand:
-                coloredlogs.install(level=_logging_level_c, logger=self.logger)
+                coloredlogs.install(level=_logging_level_c,
+                logger=self.logger, fmt=_console_format, datefmt='%H:%M:%S')
             else:
                 #*** Add console log handler to logger:
+                self.console_handler = logging.StreamHandler()
+                console_formatter = logging.Formatter(_console_format)
+                self.console_handler.setFormatter(console_formatter)
+                self.console_handler.setLevel(_logging_level_c)
                 self.logger.addHandler(self.console_handler)
 
         self.api_url = str(self.config.get_value('nmeta_controller_address'))

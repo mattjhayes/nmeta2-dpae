@@ -39,7 +39,8 @@ coloredlogs_enabled: 1
 #
 #*** Console Log Format:
 #console_format: "%(levelname)s: %(name)s %(funcName)s: %(message)s"
-console_format: "%(levelname)s: %(name)s pid=%(process)d %(funcName)s: %(message)s"
+#console_format: "%(levelname)s: %(name)s pid=%(process)d %(funcName)s: %(message)s"
+console_format: "%(asctime)s.%(msecs)03d %(name)s[%(process)d] %(funcName)s %(levelname)s %(message)s"
 #
 #*** Console Logging Levels Per Module
 #*** Values can be one of CRITICAL|ERROR|WARNING|INFO|DEBUG:
@@ -50,12 +51,25 @@ tc_logging_level_c: DEBUG
 tc_policy_dpae_logging_level_c: DEBUG
 requests_logging_level: CRITICAL
 #
-#========== SNIFFING CONFIG =========================
+#========== SNIFFING CONFIG ===========================
 #*** Interface names to sniff on (comma separated, no spaces)
 #sniff_if_names: eth1,eth2
 sniff_if_names: eth1
 #
-#========== KEEPALIVE BETWEEN DPAE and CONTROLLER ===
+#========== DPAE JOIN TIMING PARAMETERS ===============
+#*** Time in seconds to wait between sending Phase 3 API request and
+#     checking the sniff queue for discover confirm packets:
+phase3_sniff_wait_time: 1
+#
+#*** Time in seconds (float) to wait for sniff process to complete
+#     after join issued:
+phase3_sniff_join_timeout: 2
+#
+#*** Time in seconds to wait in sniff.discover_confirm for a matching packet:
+phase3_sniff_dc_timeout: 5
+
+
+#========== KEEPALIVE BETWEEN DPAE and CONTROLLER =====
 #*** Interval between keepalive tests in seconds (float):
 keepalive_interval: 1
 #*** Number of concurrent retries before marking controller
