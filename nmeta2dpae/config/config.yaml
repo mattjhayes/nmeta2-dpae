@@ -35,11 +35,12 @@ tc_policy_dpae_logging_level_s: DEBUG
 console_log_enabled: 1
 #
 #*** Set to 1 if you want colorised logs in terminal:
-coloredlogs_enabled: 1
+coloredlogs_enabled: 0
 #
 #*** Console Log Format:
 #console_format: "%(levelname)s: %(name)s %(funcName)s: %(message)s"
-console_format: "%(levelname)s: %(name)s pid=%(process)d %(funcName)s: %(message)s"
+#console_format: "%(levelname)s: %(name)s pid=%(process)d %(funcName)s: %(message)s"
+console_format: "%(asctime)s %(name)s[%(process)d] %(funcName)s %(levelname)s %(message)s"
 #
 #*** Console Logging Levels Per Module
 #*** Values can be one of CRITICAL|ERROR|WARNING|INFO|DEBUG:
