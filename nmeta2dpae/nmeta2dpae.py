@@ -248,6 +248,7 @@ class DPAE(object):
         main_policy_yaml = 0
         while not main_policy_yaml:
             main_policy_yaml = controlchannel.get_policy(location_policy)
+            time.sleep(1)
         self.logger.debug("Retrieved main_policy_yaml text %s",
                                                         main_policy_yaml)
 
@@ -329,8 +330,9 @@ class DPAE(object):
             if not sniff_queue.empty():
                 pkt, pkt_receive_timestamp = sniff_queue.get()
                 #*** Send packet to tc for classification:
-                tc_result = self.tc.classify_dpkt(pkt, pkt_receive_timestamp,
-                                                            if_name)
+                tc_result = self.tc.classify_dpkt_wrapper(pkt,
+                                                pkt_receive_timestamp, if_name)
+
                 if 'type' in tc_result:
                     if tc_result['type'] != 'none':
                         #*** Send via API to controller:

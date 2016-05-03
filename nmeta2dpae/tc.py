@@ -151,6 +151,34 @@ class TC(object):
             class_ = getattr(module, 'Classifier')
             self.classifiers.append(class_(self.logger))
 
+    # UNDER CONSTRUCTION...
+    def try_except(fn):
+        def wrapped(*args, **kwargs):
+            self.logger.debug("Trying...")
+            try:
+                return fn(*args, **kwargs)
+            except Exception, e:
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                self.logger.error("Exception %s, %s, %s",
+                        exc_type, exc_value, exc_traceback)
+                
+        return wrapped
+
+    def classify_dpkt_wrapper(self, pkt, pkt_receive_timestamp, if_name):
+        """
+        Used to catch and handle exceptions in classify_dpkt otherwise
+        it can just hang with no explaination...
+        """
+        try:
+            result = self.classify_dpkt(pkt, pkt_receive_timestamp, if_name)
+            return result
+        except:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            self.logger.error("classify_dpkt exception %s, %s, %s",
+                                            exc_type, exc_value, exc_traceback)
+            return {}
+
+    @try_except
     def classify_dpkt(self, pkt, pkt_receive_timestamp, if_name):
         """
         Perform traffic classification on a packet
@@ -205,6 +233,9 @@ class TC(object):
             #*** ARP:
             return self._parse_arp(eth, eth_src)
 
+        #*** TEMP EXCEPTION FOR TESTING:
+        foo = 10 * (1/0)
+
         #*** The following is TCP specific but shouldn't be... TBD...
         if tcp:
             #*** Read packet into flow object for classifiers to work with:
@@ -212,7 +243,14 @@ class TC(object):
 
             #*** Run any custom classifiers:
             for classifier in self.classifiers:
-                result_classifier = classifier.classifier(self.flow)
+                try:
+                    result_classifier = classifier.classifier(self.flow)
+                except:
+                    exc_type, exc_value, exc_traceback = sys.exc_info()
+                    self.logger.error("Exception in custom classifier %s."
+                                    "Exception %s, %s, %s",
+                                classifier, exc_type, exc_value, exc_traceback)
+                    return result
 
             #*** TBD, this will need updating for more types of return actions:
             if 'qos_treatment' in result_classifier:
