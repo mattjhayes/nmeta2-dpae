@@ -151,6 +151,21 @@ class TC(object):
             class_ = getattr(module, 'Classifier')
             self.classifiers.append(class_(self.logger))
 
+    def classify_dpkt_wrapper(self, pkt, pkt_receive_timestamp, if_name):
+        """
+        Used to catch and handle exceptions in classify_dpkt otherwise
+        it can just hang with no explaination... TBD: turn this into
+        a decorator...
+        """
+        try:
+            result = self.classify_dpkt(pkt, pkt_receive_timestamp, if_name)
+            return result
+        except:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            self.logger.error("classify_dpkt exception %s, %s, %s",
+                                            exc_type, exc_value, exc_traceback)
+            return {}
+
     def classify_dpkt(self, pkt, pkt_receive_timestamp, if_name):
         """
         Perform traffic classification on a packet
@@ -212,7 +227,14 @@ class TC(object):
 
             #*** Run any custom classifiers:
             for classifier in self.classifiers:
-                result_classifier = classifier.classifier(self.flow)
+                try:
+                    result_classifier = classifier.classifier(self.flow)
+                except:
+                    exc_type, exc_value, exc_traceback = sys.exc_info()
+                    self.logger.error("Exception in custom classifier %s."
+                                    "Exception %s, %s, %s",
+                                classifier, exc_type, exc_value, exc_traceback)
+                    return result
 
             #*** TBD, this will need updating for more types of return actions:
             if 'qos_treatment' in result_classifier:
