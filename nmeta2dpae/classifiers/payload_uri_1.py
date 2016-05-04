@@ -56,7 +56,7 @@ class Classifier(object):
         _max_packets = 5
 
         #*** URI to match:
-        _match_uri = 'foo'
+        _match_uri = '/static/index.html'
 
         #*** QoS actions to take:
         _qos_action_match = 'constrained_bw'
@@ -64,23 +64,29 @@ class Classifier(object):
 
         #*** Dictionary to hold classification results:
         _results = {}
+        http = ''
 
-        if flow.packet_count >= _max_packets and not flow.finalised:
-            #*** Reached our maximum packet count so do some classification:
-            self.logger.debug("Reached max packets count, finalising")
-            flow.finalised = 1
+        if not flow.finalised:
+            #*** Do some classification:
+            self.logger.debug("Checking packet")
 
+            #*** Get the latest packet payload from the flow class:
             payload = flow.payload
-            self.logger.debug("Packet payload=%s", payload)
 
-            http = dpkt.http.Request(payload)
+            #*** Check if the payload is HTTP:
+            if len(payload) > 0:
+                try:
+                    http = dpkt.http.Request(payload)
+                except:
+                    #*** not HTTP so ignore...
+                    pass
 
             if http:
                 #*** Decide actions based on the URI:
                 if http.uri == _match_uri:
                     #*** Matched URI:
                     self.logger.debug("Matched HTTP uri=%s", http.uri)
-                    _results['qos_treatment'] = _qos_action
+                    _results['qos_treatment'] = _qos_action_match
                 else:
                     #*** Doesn't match URI:
                     self.logger.debug("Did not match HTTP uri=%s", http.uri)
@@ -90,5 +96,8 @@ class Classifier(object):
 
             else:
                 self.logger.debug("Not HTTP so ignoring")
+
+            if flow.packet_count >= _max_packets:
+                flow.finalised = 1
 
         return _results
