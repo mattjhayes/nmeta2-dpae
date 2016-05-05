@@ -91,7 +91,7 @@ class Sniff(object):
             if _coloredlogs_enabled:
                 #*** Colourise the logs to make them easier to understand:
                 coloredlogs.install(level=_logging_level_c,
-                logger=self.logger, fmt=_console_format, datefmt='%H:%M:%S')
+                   logger=self.logger, fmt=_console_format, datefmt='%H:%M:%S')
             else:
                 #*** Add console log handler to logger:
                 self.console_handler = logging.StreamHandler()
