@@ -236,8 +236,9 @@ class Flow(object):
             self.fcip_doc['packet_count'] += 1
             self.packet_count = self.fcip_doc['packet_count']
             if self.fcip_doc['packet_count'] >= self.max_packet_count:
-                #*** TBD
+                #*** TBD:
                 self.fcip_doc['finalised'] = 1
+                self.logger.debug("Finalising...")
             #*** Add packet timestamps, tcp flags etc:
             self.fcip_doc['packet_timestamps'].append(pkt_receive_timestamp)
             self.fcip_doc['tcp_flags'].append(tcp.flags)

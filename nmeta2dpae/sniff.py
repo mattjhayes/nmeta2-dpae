@@ -17,23 +17,19 @@ This module is part of the nmeta2 suite
 It provides packet sniffing services
 """
 
+#*** For socket operation:
 import socket
 
-import struct
-
+#*** General imports:
 import time
-import sys
 
 #*** Import dpkt for packet parsing:
 import dpkt
 
+#*** Logging imports:
 import logging
 import logging.handlers
 import coloredlogs
-
-#*** JSON:
-import json
-from json import JSONEncoder
 
 #*** For setting Ethernet interface promiscuous mode:
 import ctypes
@@ -55,7 +51,7 @@ class Sniff(object):
     This class is instantiated by nmeta_dpae.py and provides methods to
     sniff and process inbound packets on a given interface
     """
-    def __init__(self, _nmeta, _config):
+    def __init__(self, _config):
         #*** Get logging config values from config class:
         _logging_level_s = _config.get_value \
                                     ('sniff_logging_level_s')
@@ -100,14 +96,6 @@ class Sniff(object):
                 self.console_handler.setLevel(_logging_level_c)
                 self.logger.addHandler(self.console_handler)
 
-        #*** Update JSON to support UUID encoding:
-        JSONEncoder_olddefault = JSONEncoder.default
-        def JSONEncoder_newdefault(self, o):
-            if isinstance(o, UUID):
-                return str(o)
-            return JSONEncoder_olddefault(self, o)
-        JSONEncoder.default = JSONEncoder_newdefault
-        
     def tc_sniff(self, queue, if_name):
         """
         This function processes sniffed packets
@@ -127,7 +115,7 @@ class Sniff(object):
             pkt, sa_ll = mysock.recvfrom(MTU)
             #*** Ignore outgoing packets:
             pkt_type = sa_ll[2]
-            
+
             if pkt_type == socket.PACKET_OUTGOING:
                 continue
 
@@ -138,14 +126,13 @@ class Sniff(object):
             #*** Send result in queue back to the parent process:
             queue.put(pkt_tuple)
 
-    def discover_confirm(self, queue, if_name, dpae2ctrl_mac, ctrl2dpae_mac,
-                        dpae_ethertype, timeout, uuid_dpae, uuid_controller):
+    def discover_confirm(self, if_name, dpae2ctrl_mac, ctrl2dpae_mac,
+                        dpae_ethertype, timeout):
         """
         This function processes sniffs for a discover confirm packet
         and returns 1 if seen and valid, otherwise 0 after expiry of
         timeout period
         """
-        self.logger.debug("Phase 3 discover_confirm started on %s", if_name)
         #*** Start layer 2 socket for packet sniffing:
         self.logger.info("Starting socket sniff connection to interface=%s",
                             if_name)
@@ -157,11 +144,12 @@ class Sniff(object):
 
         start_time = time.time()
         elapsed_time = 0
-        result = 0
+        payload = ''
+
         while True:
             if elapsed_time > timeout:
                 self.logger.warning("Phase 3 timeout waiting for packet")
-                return 0
+                break
             self.logger.debug("sniff getting packet from socket")
             #*** Get packet from socket:
             pkt, sa_ll = mysock.recvfrom(MTU)
@@ -170,40 +158,31 @@ class Sniff(object):
             eth = dpkt.ethernet.Ethernet(pkt)
             eth_src = mac_addr(eth.src)
             eth_dst = mac_addr(eth.dst)
+            eth_type = eth.type
             eth_payload = eth.data
 
             #*** Ignore outgoing packets:
             pkt_type = sa_ll[2]
             if pkt_type == socket.PACKET_OUTGOING:
-                self.logger.debug("sniff ignoring outgoing packet")
+                self.logger.debug("Ignoring outgoing packet")
             else:
-                if (eth_src == dpae2ctrl_mac and
-                            eth_dst == ctrl2dpae_mac):
+                if (eth_src == dpae2ctrl_mac and eth_dst == ctrl2dpae_mac and
+                                                eth_type == dpae_ethertype):
                     self.logger.debug("Matched discover confirm, src=%s "
                                             "dst=%s payload=%s",
                                             eth_src, eth_dst, eth_payload)
-                    #*** Validate JSON in payload:
-                    json_decode = JSON_Body(str(eth_payload))
-                    if json_decode.error:
-                        self.logger.error("Phase 3 packet payload is not JSON"
-                                            "error=%s", json_decode.error_full)
-                        return 0
-                    #*** Validate required keys are present in JSON:
-                    if not json_decode.validate(['hostname_dpae', 'uuid_dpae',
-                                        'uuid_controller', 'if_name']):
-                        self.logger.error("Validation error %s",
-                                                    json_decode.error)
-                        return 0
-
-                    result = 1
+                    payload = eth_payload
                     break
-
+                else:
+                    self.logger.debug("Ignoring packet src=%s dst=%s type=%s "
+                                            "payload=%s",
+                                       eth_src, eth_dst, eth_type, eth_payload)
             elapsed_time = time.time() - start_time
+
         #*** Close the socket:
         mysock.close()
-        #*** Send result in queue back to the parent process:
-        queue.put(result)
-        return result
+        #*** Return the packet payload (if any, otherwise empty string):
+        return payload
 
     def set_promiscuous_mode(self, if_name, mysock):
         """
@@ -230,66 +209,6 @@ class Ifreq(ctypes.Structure):
     """
     _fields_ = [("ifr_ifrn", ctypes.c_char * 16),
                 ("ifr_flags", ctypes.c_short)]
-
-class JSON_Body(object):
-    """
-    Represents a JSON-encoded body of an HTTP request.
-    Doesn't do logging, but does set .error when things
-    don't go to plan with a friendly message.
-    """
-    def __init__(self, req_body):
-        self.json = {}
-        self.error = ""
-        self.error_full = ""
-        self.req_body = self.decode(req_body)
-
-    def decode(self, req_body):
-        """
-        Passed an allegedly JSON body and see if it
-        decodes. Set error variable for exceptions
-        """
-        json_decode = {}
-        if req_body:
-            #*** Try decode as JSON:
-            try:
-                json_decode = json.loads(req_body)
-            except:
-                exc_type, exc_value, exc_traceback = sys.exc_info()
-                self.error = '{\"Error\": \"Bad JSON\"}'
-                self.error_full = '{\"Error\": \"Bad JSON\",' + \
-                             '\"exc_type\":' + str(exc_type) + ',' + \
-                             '\"exc_value\":' + str(exc_value) + ',' + \
-                             '\"exc_traceback\":' + str(exc_traceback) + '}'
-                return 0
-        else:
-            json_decode = {}
-        self.json = json_decode
-        return json_decode
-
-    def validate(self, key_list):
-        """
-        Passed a list of keys and check that they exist in the
-        JSON. If they don't return 0 and set error to description
-        of first missing key that was found
-        """
-        for key in key_list:
-            if not key in self.req_body:
-                self.error = '{\"Error\": \"No ' + key + '\"}'
-                return 0
-        return 1
-
-    def __getitem__(self, key):
-        """
-        Passed a key and see if it exists in JSON
-        object. If it does, return the value for the key.
-        If not, return 0
-        Example:
-            foo = json_body['foo']
-        """
-        if key in self.req_body:
-            return self.req_body[key]
-        else:
-            return 0
 
 def mac_addr(address):
     """

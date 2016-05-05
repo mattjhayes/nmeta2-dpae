@@ -51,7 +51,7 @@ class ControlChannel(object):
     This class is instantiated by nmeta_dpae.py and provides methods to
     interact with the nmeta control plane
     """
-    def __init__(self, _nmeta, _config, if_name, sniff):
+    def __init__(self, _nmeta2dpae, _config, if_name, dp):
         #*** Get logging config values from config class:
         _logging_level_s = _config.get_value \
                                     ('controlplane_logging_level_s')
@@ -113,8 +113,8 @@ class ControlChannel(object):
             return JSONEncoder_olddefault(self, o)
         JSONEncoder.default = JSONEncoder_newdefault
         self.config = _config
-        self._nmeta = _nmeta
-        self.sniff = sniff
+        self._nmeta2dpae = _nmeta2dpae
+        self.dp = dp
 
         self.keepalive_interval = \
                         float(self.config.get_value('keepalive_interval'))
@@ -278,8 +278,8 @@ class ControlChannel(object):
         #*** Success:
         return 1
 
-    def phase3(self, api_base, if_name, dpae2ctrl_mac, ctrl2dpae_mac,
-                        dpae_ethertype):
+    def phase3(self, api_base, if_name, dpae2ctrl_mac,
+                ctrl2dpae_mac, dpae_ethertype):
         """
         Phase 3 (per DPAE sniffing interface)
         confirmation of sniffing packets
@@ -289,7 +289,8 @@ class ControlChannel(object):
         #*** Start sniffer process:
         self.logger.info("Starting separate sniff process")
         queue = multiprocessing.Queue()
-        sniff_ps = multiprocessing.Process(target=self.sniff.discover_confirm,
+        sniff_ps = multiprocessing.Process(
+                        target=self._nmeta2dpae.dp.dp_discover,
                         args=(queue, if_name, dpae2ctrl_mac, ctrl2dpae_mac,
                         dpae_ethertype, self.phase3_sniff_dc_timeout,
                         self.our_uuid, self.uuid_controller))
@@ -297,7 +298,7 @@ class ControlChannel(object):
 
         #*** Instruct controller to send confirmation packet:
         url_send_conf_pkt = api_base + '/send_conf_packet/'
-        
+
         json_send_conf_pkt = json.dumps({'hostname_dpae': self.hostname,
                                     'if_name': if_name,
                                     'uuid_dpae': self.our_uuid,
@@ -310,6 +311,10 @@ class ControlChannel(object):
                             "to send a sniff confirmation packet, "
                             "%s, %s, %s",
                             exc_type, exc_value, exc_traceback)
+            #*** Close the child sniff process down:
+            queue.close()
+            queue.join_thread()
+            sniff_ps.join(self.phase3_sniff_join_timeout)
             return 0
 
         #*** Wait for a small amount of time:
@@ -437,7 +442,8 @@ class ControlChannel(object):
         If keepalive fails, then set an event flag
         for parent process.
         """
-        #*** TBD, use config for values and require multiple failures before marking as down
+        #*** TBD, use config for values and require multiple failures before
+        #***  marking as down
         failed_test = 0
         failed_concurrent = 0
         failed_total = 0
