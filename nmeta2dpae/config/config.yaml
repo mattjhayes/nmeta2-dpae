@@ -60,12 +60,12 @@ sniff_if_names: eth1
 #
 #========== DPAE JOIN TIMING PARAMETERS ===============
 #*** Time in seconds to wait between sending Phase 3 API request and
-#     checking the sniff queue for discover confirm packets:
+#     checking the sniff queue for discover confirm packets (run n times):
 phase3_sniff_wait_time: 1
 #
-#*** Time in seconds (float) to wait for sniff process to complete
-#     after join issued:
-phase3_sniff_join_timeout: 2
+#*** Number of times to iterate reading the queue, each time waiting for
+#     phase3_sniff_wait_time:
+phase3_queue_reads: 5
 #
 #*** Time in seconds to wait in sniff.discover_confirm for a matching packet:
 phase3_sniff_dc_timeout: 5

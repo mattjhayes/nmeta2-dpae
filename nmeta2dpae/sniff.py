@@ -96,10 +96,45 @@ class Sniff(object):
                 self.console_handler.setLevel(_logging_level_c)
                 self.logger.addHandler(self.console_handler)
 
-    def tc_sniff(self, queue, if_name):
+    def sniff_run(self, if_name, tc, queue):
         """
         This function processes sniffed packets
         """
+
+        # TEMP EXCEPTION:
+        x = 10/0
+
+        #*** Start layer 2 socket for packet sniffing:
+        self.logger.info("Starting socket sniff connection to interface=%s",
+                            if_name)
+        mysock = socket.socket(
+            socket.AF_PACKET, socket.SOCK_RAW, socket.htons(ETH_P_ALL))
+        mysock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
+        mysock.bind((if_name, ETH_P_ALL))
+        self.set_promiscuous_mode(if_name, mysock)
+
+        finished = 0
+        while not finished:
+            #*** Get packet from socket:
+            pkt, sa_ll = mysock.recvfrom(MTU)
+            #*** Ignore outgoing packets:
+            pkt_type = sa_ll[2]
+
+            if pkt_type == socket.PACKET_OUTGOING:
+                continue
+
+            #*** Record the time (would be better if was actual receive time)
+            pkt_receive_timestamp = time.time()
+            pkt_tuple = (pkt, pkt_receive_timestamp)
+
+            #*** Send result in queue back to the parent process:
+            queue.put(pkt_tuple)
+
+    def tc_sniff_old(self, queue, if_name):
+        """
+        This function processes sniffed packets
+        """
+
         #*** Start layer 2 socket for packet sniffing:
         self.logger.info("Starting socket sniff connection to interface=%s",
                             if_name)
@@ -133,6 +168,7 @@ class Sniff(object):
         and returns 1 if seen and valid, otherwise 0 after expiry of
         timeout period
         """
+
         #*** Start layer 2 socket for packet sniffing:
         self.logger.info("Starting socket sniff connection to interface=%s",
                             if_name)
@@ -174,9 +210,8 @@ class Sniff(object):
                     payload = eth_payload
                     break
                 else:
-                    self.logger.debug("Ignoring packet src=%s dst=%s type=%s "
-                                            "payload=%s",
-                                       eth_src, eth_dst, eth_type, eth_payload)
+                    self.logger.debug("Ignoring packet src=%s dst=%s type=%s",
+                                       eth_src, eth_dst, eth_type)
             elapsed_time = time.time() - start_time
 
         #*** Close the socket:

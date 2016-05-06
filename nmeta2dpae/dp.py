@@ -28,6 +28,7 @@ import coloredlogs
 
 #*** General imports:
 import sys
+import traceback
 
 #*** JSON:
 import json
@@ -101,8 +102,18 @@ class DP(object):
         """
         self.logger.debug("Starting data plane discover confirm on %s",
                                                             if_name)
-        payload = self.sniff.discover_confirm(if_name, dpae2ctrl_mac,
+        #*** Run the sniffer to see if we can capture a discover
+        #***  confirm packet:
+        try:
+            payload = self.sniff.discover_confirm(if_name, dpae2ctrl_mac,
                                         ctrl2dpae_mac, dpae_ethertype, timeout)
+        except:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            self.logger.error("sniff.discover_confirm exception %s, %s, %s",
+                                            exc_type, exc_value, exc_traceback)
+            result = 0
+            queue.put(result)
+            return result
 
         if payload:
             #*** Validate JSON in payload:
@@ -133,7 +144,7 @@ class DP(object):
                 queue.put(result)
                 return result
         else:
-            self.logger.error("No payload returned")
+            self.logger.warning("No payload returned. This happens sometimes")
             result = 0
             queue.put(result)
             return result
@@ -158,11 +169,12 @@ class DP(object):
         #*** Wait to be advised of TC Mode:
         # TBD
 
-        #*** Main run loop for the Data Plane:
-        finished = 0
-        while not finished:
-            # TBD
-            pass
+        #*** Run sniffer to capture traffic and send to TC:
+        try:
+            self.sniff.sniff_run(if_name, self.tc, interplane_queue)
+        except Exception, e:
+            self.logger.critical("sniff.sniff_run: %s", e, exc_info=True)
+            return 0
 
         #*** For active mode:
         #if tc_mode == 'active':

@@ -121,11 +121,11 @@ class ControlChannel(object):
         self.keepalive_retries = \
                         int(self.config.get_value('keepalive_retries'))
 
-        #*** Get config parameters for join timings:
+        #*** Get config parameters for sniff discover timings:
         self.phase3_sniff_wait_time = \
                         int(self.config.get_value('phase3_sniff_wait_time'))
-        self.phase3_sniff_join_timeout = \
-                    float(self.config.get_value('phase3_sniff_join_timeout'))
+        self.phase3_queue_reads = \
+                        int(self.config.get_value('phase3_queue_reads'))
         self.phase3_sniff_dc_timeout = \
                         int(self.config.get_value('phase3_sniff_dc_timeout'))
 
@@ -314,25 +314,36 @@ class ControlChannel(object):
             #*** Close the child sniff process down:
             queue.close()
             queue.join_thread()
-            sniff_ps.join(self.phase3_sniff_join_timeout)
+            sniff_ps.join()
             return 0
 
-        #*** Wait for a small amount of time:
-        time.sleep(self.phase3_sniff_wait_time)
-
-        #*** Get result:
-        if not queue.empty():
-            self.logger.debug("Reading queue from child sniff process...")
-            result = queue.get()
-            self.logger.debug("Phase 3 result of sniff confirmation is %s",
+        finished = 0
+        queue_reads = 1
+        #*** Loop reading queue a set number of times:
+        while not finished:
+            #*** Wait for a small amount of time:
+            time.sleep(self.phase3_sniff_wait_time)
+            #*** Get result:
+            if not queue.empty():
+                self.logger.debug("Reading queue from child sniff process "
+                                        "attempt=%s", queue_reads)
+                result = queue.get()
+                self.logger.debug("Phase 3 result of sniff confirmation is %s",
                                     result)
-        else:
-            self.logger.debug("Queue from child sniff process was empty")
+                break
+            else:
+                self.logger.debug("Queue from child sniff process was empty, "
+                                "attempt=%s", queue_reads)
+
+            queue_reads += 1
+            if queue_reads > self.phase3_queue_reads:
+                self.logger.info("Exceeded max sniff queue reads")
+                break
 
         #*** Close the child sniff process down:
         queue.close()
         queue.join_thread()
-        sniff_ps.join(self.phase3_sniff_join_timeout)
+        sniff_ps.join()
 
         return result
 
@@ -369,7 +380,7 @@ class ControlChannel(object):
         """
         self.logger.debug("Sending API call to Controller to start TC")
         json_start_tc = json.dumps({'tc_state': 'run',
-                                    'dpae_version': self._nmeta.version,
+                                    'dpae_version': self._nmeta2dpae.version,
                                     'hostname_dpae': self.hostname,
                                     'uuid_dpae': self.our_uuid,
                                     'uuid_controller': self.uuid_controller})
