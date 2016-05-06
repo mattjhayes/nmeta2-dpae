@@ -35,8 +35,8 @@ import json
 from json import JSONEncoder
 
 #*** nmeta-dpae imports:
-import tc
 import sniff
+import tc
 
 class DP(object):
     """
@@ -88,11 +88,12 @@ class DP(object):
                 self.console_handler.setLevel(_logging_level_c)
                 self.logger.addHandler(self.console_handler)
 
-        #*** Instantiate Sniff Class:
-        self.sniff = sniff.Sniff(_config)
-
         #*** Instantiate TC Classification class:
         self.tc = tc.TC(_config)
+
+        #*** Instantiate Sniff Class:
+        self.sniff = sniff.Sniff(_config, self.tc)
+
 
     def dp_discover(self, queue, if_name, dpae2ctrl_mac,
                         ctrl2dpae_mac, dpae_ethertype, timeout, uuid_dpae,
@@ -107,10 +108,9 @@ class DP(object):
         try:
             payload = self.sniff.discover_confirm(if_name, dpae2ctrl_mac,
                                         ctrl2dpae_mac, dpae_ethertype, timeout)
-        except:
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            self.logger.error("sniff.discover_confirm exception %s, %s, %s",
-                                            exc_type, exc_value, exc_traceback)
+        except Exception, e:
+            self.logger.error("Exception running sniff.discover_confirm: %s",
+                                        e, exc_info=True)
             result = 0
             queue.put(result)
             return result
@@ -153,7 +153,6 @@ class DP(object):
         """
         Run Data Plane (DP) Traffic Classification for an interface
         """
-        tc_mode = 'passive'
 
         #*** Set local identity harvest flags in tc for efficient access:
         self.logger.debug("Setting Identity Harvest Flags")
@@ -166,24 +165,12 @@ class DP(object):
         _classifiers = tc_policy.get_tc_classifiers(if_name)
         self.tc.instantiate_classifiers(_classifiers)
 
-        #*** Wait to be advised of TC Mode:
-        # TBD
-
         #*** Run sniffer to capture traffic and send to TC:
         try:
-            self.sniff.sniff_run(if_name, self.tc, interplane_queue)
+            self.sniff.sniff_run(if_name, self.tc, tc_policy, interplane_queue)
         except Exception, e:
             self.logger.critical("sniff.sniff_run: %s", e, exc_info=True)
             return 0
-
-        #*** For active mode:
-        #if tc_mode == 'active':
-        #    send_socket = socket(AF_PACKET, SOCK_RAW)
-        #    send_socket.bind((if_name, 0))
-
-        #if tc_mode == 'active':
-            #*** Active Mode: send the packet back to the switch:
-        #    send_socket.send(pkt)
 
 class JSON_Body(object):
     """

@@ -35,13 +35,15 @@ import coloredlogs
 import ctypes
 import fcntl
 
+
+
 #*** Constants for setting Ethernet interface promiscuous mode:
 IFF_PROMISC = 0x100
 SIOCGIFFLAGS = 0x8913
 SIOCSIFFLAGS = 0x8914
 
 #*** TBD, this should be autodetected:
-MTU = 1500
+MTU = 6000
 
 #*** TBD, this should be validated:
 ETH_P_ALL = 3
@@ -51,7 +53,7 @@ class Sniff(object):
     This class is instantiated by nmeta_dpae.py and provides methods to
     sniff and process inbound packets on a given interface
     """
-    def __init__(self, _config):
+    def __init__(self, _config, tc):
         #*** Get logging config values from config class:
         _logging_level_s = _config.get_value \
                                     ('sniff_logging_level_s')
@@ -95,14 +97,22 @@ class Sniff(object):
                 self.console_handler.setFormatter(console_formatter)
                 self.console_handler.setLevel(_logging_level_c)
                 self.logger.addHandler(self.console_handler)
+        #*** Variable for accessing tc class:
+        self.tc = tc
 
-    def sniff_run(self, if_name, tc, queue):
+    def sniff_run(self, if_name, tc, tc_policy, queue):
         """
-        This function processes sniffed packets
+        This function sniffs packets from a NIC.
+        It passes the packets to the tc module for classification and
+        returns any TC results to parent process via a queue.
+        
+        In active mode it also sends the processed packet back to
+        the switch
         """
 
-        # TEMP EXCEPTION:
-        x = 10/0
+        #*** Get the tc mode (active or passive):
+        tc_mode = tc_policy.tc_mode(if_name)
+        self.logger.debug("tc_mode is %s", tc_mode)
 
         #*** Start layer 2 socket for packet sniffing:
         self.logger.info("Starting socket sniff connection to interface=%s",
@@ -127,39 +137,23 @@ class Sniff(object):
             pkt_receive_timestamp = time.time()
             pkt_tuple = (pkt, pkt_receive_timestamp)
 
-            #*** Send result in queue back to the parent process:
-            queue.put(pkt_tuple)
-
-    def tc_sniff_old(self, queue, if_name):
-        """
-        This function processes sniffed packets
-        """
-
-        #*** Start layer 2 socket for packet sniffing:
-        self.logger.info("Starting socket sniff connection to interface=%s",
-                            if_name)
-        mysock = socket.socket(
-            socket.AF_PACKET, socket.SOCK_RAW, socket.htons(ETH_P_ALL))
-        mysock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
-        mysock.bind((if_name, ETH_P_ALL))
-        self.set_promiscuous_mode(if_name, mysock)
-
-        finished = 0
-        while not finished:
-            #*** Get packet from socket:
-            pkt, sa_ll = mysock.recvfrom(MTU)
-            #*** Ignore outgoing packets:
-            pkt_type = sa_ll[2]
-
-            if pkt_type == socket.PACKET_OUTGOING:
-                continue
-
-            #*** Record the time (would be better if was actual receive time)
-            pkt_receive_timestamp = time.time()
-            pkt_tuple = (pkt, pkt_receive_timestamp)
-
-            #*** Send result in queue back to the parent process:
-            queue.put(pkt_tuple)
+            #*** Call TC function to process packet:
+            tc_result = self.tc.classify_dpkt(pkt, pkt_receive_timestamp,
+                                                            if_name)
+            if 'type' in tc_result:
+                if tc_result['type'] != 'none':
+                    #*** Send to control plane:
+                    self.logger.debug("Sending result to control plane: %s",
+                                                            tc_result)
+                    queue.put(tc_result)
+                    
+            if tc_mode == 'active':
+                #*** Active Mode: send the packet back to the switch:
+                try:
+                    mysock.send(pkt)
+                except Exception, e:
+                    self.logger.error("Active mode sending packet failed: %s",
+                                                e, exc_info=True)
 
     def discover_confirm(self, if_name, dpae2ctrl_mac, ctrl2dpae_mac,
                         dpae_ethertype, timeout):
