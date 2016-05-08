@@ -34,9 +34,8 @@ from socket import socket, AF_PACKET, SOCK_RAW
 #*** nmeta-dpae imports:
 import config
 import controlchannel
-import tc
-import sniff
 import tc_policy_dpae
+import dp
 
 #*** Multiprocessing:
 import multiprocessing
@@ -51,7 +50,7 @@ class DPAE(object):
         Initialise the DPAE class
         """
         #*** Version number for compatibility checks:
-        self.version = '0.2.0'
+        self.version = '0.3.0'
 
         #*** Instantiate config class which imports configuration file
         #*** config.yaml and provides access to keys/values:
@@ -123,9 +122,6 @@ class DPAE(object):
         #*** Instantiate TC Policy class:
         self.tc_policy = tc_policy_dpae.TCPolicy(self.config)
 
-        #*** Instantiate Sniff Class:
-        self.sniff = sniff.Sniff(self, self.config)
-
         #*** Uncomment this for extra multiprocessing debug:
         #multiprocessing.log_to_stderr()
         #*** But if you're really stuck, run pylint on all .py files
@@ -137,12 +133,12 @@ class DPAE(object):
         """
         Run per interface that sniffing will run on as separate process
         """
+        #*** Instantiate Data Plane (DP) class:
+        self.dp = dp.DP(self.config)
+
         #*** Instantiate Control Channel Class:
         self.controlchannel = controlchannel.ControlChannel(self, self.config,
-                                    if_name, self.sniff)
-
-        #*** Instantiate TC Classification class:
-        self.tc = tc.TC(self.config)
+                                    if_name, self.dp)
 
         finished = 0
         while not finished:
@@ -235,13 +231,11 @@ class DPAE(object):
             if 'traffic_classification' in phase4_services:
                 self.logger.info("Phase 4 Traffic Classification service "
                                     "starting")
-                self.tc_run(if_name, self.controlchannel, location)
+                self.cp_run(if_name, self.controlchannel, location)
 
-    def tc_run(self, if_name, controlchannel, location):
+    def cp_run(self, if_name, controlchannel, location):
         """
-        Run Traffic Classification for an interface,
-        including separate sniffing process and communication via
-        a queue
+        Run Control Plane (CP) Traffic Classification for an interface
         """
         #*** Load main policy:
         location_policy = location + '/main_policy/'
@@ -273,24 +267,11 @@ class DPAE(object):
         self.logger.debug("TC optimised rules are %s",
                                             self.tc_policy.opt_rules)
 
-        #*** Set local identity harvest flags in tc for efficient access:
-        self.logger.debug("Setting Identity Harvest Flags")
-        self.tc.id_arp = self.tc_policy.get_id_flag(if_name, 'arp')
-        self.tc.id_lldp = self.tc_policy.get_id_flag(if_name, 'lldp')
-        self.tc.id_dns = self.tc_policy.get_id_flag(if_name, 'dns')
-        self.tc.id_dhcp = self.tc_policy.get_id_flag(if_name, 'dhcp')
-
-        #*** Set up TC classifiers to run in tc class:
-        _classifiers = self.tc_policy.get_tc_classifiers(if_name)
-        self.tc.instantiate_classifiers(_classifiers)
-
-        #*** Start a sniffer process:
-        self.logger.info("Starting separate sniff process for TC")
-        sniff_queue = multiprocessing.Queue()
-        jobs = []
-        sniff_ps = multiprocessing.Process(target=self.sniff.tc_sniff,
-                        args=(sniff_queue, if_name))
-        jobs.append(sniff_ps)
+        #*** Start a Data Plane process:
+        self.logger.info("Starting Data Plane process")
+        interplane_queue = multiprocessing.Queue()
+        sniff_ps = multiprocessing.Process(target=self.dp.dp_run,
+                        args=(interplane_queue, self.tc_policy, if_name))
         sniff_ps.start()
 
         #*** Ask controlchannel to tell Controller to start sending
@@ -307,6 +288,7 @@ class DPAE(object):
                 self.logger.error("Failed to start TC on Controller."
                                     "Will retry...")
                 time.sleep(1)
+
         #*** Start keepalive child process to regularly check
         #***  that controller is alive and session is still valid:
         keepalive_ev = multiprocessing.Event()
@@ -317,22 +299,14 @@ class DPAE(object):
                                  if_name))
         keepalive_child.start()
 
-        #*** For active mode:
-        if tc_mode == 'active':
-            send_socket = socket(AF_PACKET, SOCK_RAW)
-            send_socket.bind((if_name, 0))
-
-        #*** Loop reading the queue and passing packets to tc_policy
+        #*** Read the queue for data plane events escalated to control plane
+        #***  and check keepalive validity:
         finished = 0
         location_tc_classify = location + '/services/tc/classify/'
         while not finished:
             #*** Get result:
-            if not sniff_queue.empty():
-                pkt, pkt_receive_timestamp = sniff_queue.get()
-                #*** Send packet to tc for classification:
-                tc_result = self.tc.classify_dpkt_wrapper(pkt,
-                                                pkt_receive_timestamp, if_name)
-
+            if not interplane_queue.empty():
+                tc_result = interplane_queue.get()
                 if 'type' in tc_result:
                     if tc_result['type'] != 'none':
                         #*** Send via API to controller:
@@ -340,10 +314,6 @@ class DPAE(object):
                                                             tc_result)
                         controlchannel.tc_advise_controller(
                                             location_tc_classify, tc_result)
-                if tc_mode == 'active':
-                    #*** Active Mode: send the packet back to the switch:
-                    send_socket.send(pkt)
-
             else:
                 time.sleep(.01)
             #*** Check keepalive still valid:

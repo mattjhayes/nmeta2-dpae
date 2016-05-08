@@ -155,3 +155,17 @@ class TCPolicy(object):
                 classifiers.append((fe_match_list['type'],
                                             fe_match_list['value']))
         return classifiers
+
+    def tc_mode(self, if_name):
+        """
+        Return the tc mode for the policy (active or passive)
+        """
+        _tc_policies = self.main_policy[if_name]['tc_policies']
+        _tc_policies_keys = list(_tc_policies.keys())
+        _tc_policy_name = _tc_policies_keys[0]
+        tc_mode = _tc_policies[_tc_policy_name]['mode']
+        if tc_mode:
+            return tc_mode
+        else:
+            self.logger.error("Could not find tc mode in policy")
+            return 'passive'
