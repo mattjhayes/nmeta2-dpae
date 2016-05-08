@@ -27,6 +27,7 @@ Version 2.x Toulouse Code
 #*** Logging imports:
 import logging
 import logging.handlers
+import coloredlogs
 
 #*** General imports:
 import socket
@@ -61,11 +62,13 @@ class TC(object):
         _logfacility = _config.get_value('logfacility')
         _syslog_format = _config.get_value('syslog_format')
         _console_log_enabled = _config.get_value('console_log_enabled')
+        _coloredlogs_enabled = _config.get_value('coloredlogs_enabled')
         _console_format = _config.get_value('console_format')
         #*** Set up Logging:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
         self.logger.propagate = False
+
         #*** Syslog:
         if _syslog_enabled:
             #*** Log to syslog on host specified in config.yaml:
@@ -80,12 +83,18 @@ class TC(object):
         #*** Console logging:
         if _console_log_enabled:
             #*** Log to the console:
-            self.console_handler = logging.StreamHandler()
-            console_formatter = logging.Formatter(_console_format)
-            self.console_handler.setFormatter(console_formatter)
-            self.console_handler.setLevel(_logging_level_c)
-            #*** Add console log handler to logger:
-            self.logger.addHandler(self.console_handler)
+            if _coloredlogs_enabled:
+                #*** Colourise the logs to make them easier to understand:
+                coloredlogs.install(level=_logging_level_c,
+                logger=self.logger, fmt=_console_format, datefmt='%H:%M:%S')
+            else:
+                #*** Add console log handler to logger:
+                self.console_handler = logging.StreamHandler()
+                console_formatter = logging.Formatter(_console_format)
+                self.console_handler.setFormatter(console_formatter)
+                self.console_handler.setLevel(_logging_level_c)
+                self.logger.addHandler(self.console_handler)
+
         #*** Initialise Identity Harvest flags (they get set at DPAE join time)
         self.id_arp = 0
         self.id_lldp = 0
@@ -121,7 +130,7 @@ class TC(object):
 
         for tc_type, module_name in _classifiers:
             #*** Dynamically import and instantiate class from classifiers dir:
-            self.logger.debug("    Importing module type=%s module_name=%s",
+            self.logger.debug("Importing module type=%s module_name=%s",
                                         tc_type, "classifiers." + module_name)
             try:
                 module = importlib.import_module("classifiers." + module_name)
@@ -138,9 +147,24 @@ class TC(object):
                 sys.exit("Exiting, please fix error...")
 
             #*** Dynamically instantiate class 'Classifier':
-            self.logger.debug("    Instantiating module class")
+            self.logger.debug("Instantiating module class")
             class_ = getattr(module, 'Classifier')
             self.classifiers.append(class_(self.logger))
+
+    def classify_dpkt_wrapper(self, pkt, pkt_receive_timestamp, if_name):
+        """
+        Used to catch and handle exceptions in classify_dpkt otherwise
+        it can just hang with no explaination... TBD: turn this into
+        a decorator...
+        """
+        try:
+            result = self.classify_dpkt(pkt, pkt_receive_timestamp, if_name)
+            return result
+        except:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            self.logger.error("classify_dpkt exception %s, %s, %s",
+                                            exc_type, exc_value, exc_traceback)
+            return {}
 
     def classify_dpkt(self, pkt, pkt_receive_timestamp, if_name):
         """
@@ -203,9 +227,18 @@ class TC(object):
 
             #*** Run any custom classifiers:
             for classifier in self.classifiers:
-                result['qos_treatment'] = classifier.classifier(self.flow)
+                try:
+                    result_classifier = classifier.classifier(self.flow)
+                except:
+                    exc_type, exc_value, exc_traceback = sys.exc_info()
+                    self.logger.error("Exception in custom classifier %s."
+                                    "Exception %s, %s, %s",
+                                classifier, exc_type, exc_value, exc_traceback)
+                    return result
 
-            if result['qos_treatment']:
+            #*** TBD, this will need updating for more types of return actions:
+            if 'qos_treatment' in result_classifier:
+                result['qos_treatment'] = result_classifier['qos_treatment']
                 result['actions'] = 1
                 result['type'] = 'treatment'
 

@@ -23,6 +23,7 @@ Version 2.x Toulouse Code
 #*** Logging imports:
 import logging
 import logging.handlers
+import coloredlogs
 
 import sys
 
@@ -44,20 +45,22 @@ class TCPolicy(object):
     def __init__(self, _config):
         #*** Get logging config values from config class:
         _logging_level_s = _config.get_value \
-                                    ('tc_policy_logging_level_s')
+                                    ('tc_policy_dpae_logging_level_s')
         _logging_level_c = _config.get_value \
-                                    ('tc_policy_logging_level_c')
+                                    ('tc_policy_dpae_logging_level_c')
         _syslog_enabled = _config.get_value('syslog_enabled')
         _loghost = _config.get_value('loghost')
         _logport = _config.get_value('logport')
         _logfacility = _config.get_value('logfacility')
         _syslog_format = _config.get_value('syslog_format')
         _console_log_enabled = _config.get_value('console_log_enabled')
+        _coloredlogs_enabled = _config.get_value('coloredlogs_enabled')
         _console_format = _config.get_value('console_format')
         #*** Set up Logging:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
         self.logger.propagate = False
+
         #*** Syslog:
         if _syslog_enabled:
             #*** Log to syslog on host specified in config.yaml:
@@ -72,12 +75,17 @@ class TCPolicy(object):
         #*** Console logging:
         if _console_log_enabled:
             #*** Log to the console:
-            self.console_handler = logging.StreamHandler()
-            console_formatter = logging.Formatter(_console_format)
-            self.console_handler.setFormatter(console_formatter)
-            self.console_handler.setLevel(_logging_level_c)
-            #*** Add console log handler to logger:
-            self.logger.addHandler(self.console_handler)
+            if _coloredlogs_enabled:
+                #*** Colourise the logs to make them easier to understand:
+                coloredlogs.install(level=_logging_level_c,
+                logger=self.logger, fmt=_console_format, datefmt='%H:%M:%S')
+            else:
+                #*** Add console log handler to logger:
+                self.console_handler = logging.StreamHandler()
+                console_formatter = logging.Formatter(_console_format)
+                self.console_handler.setFormatter(console_formatter)
+                self.console_handler.setLevel(_logging_level_c)
+                self.logger.addHandler(self.console_handler)
 
         #*** Object to hold Controller main policies per interface in YAML:
         self.main_policy = dict()
@@ -147,3 +155,17 @@ class TCPolicy(object):
                 classifiers.append((fe_match_list['type'],
                                             fe_match_list['value']))
         return classifiers
+
+    def tc_mode(self, if_name):
+        """
+        Return the tc mode for the policy (active or passive)
+        """
+        _tc_policies = self.main_policy[if_name]['tc_policies']
+        _tc_policies_keys = list(_tc_policies.keys())
+        _tc_policy_name = _tc_policies_keys[0]
+        tc_mode = _tc_policies[_tc_policy_name]['mode']
+        if tc_mode:
+            return tc_mode
+        else:
+            self.logger.error("Could not find tc mode in policy")
+            return 'passive'

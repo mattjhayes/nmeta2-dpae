@@ -19,8 +19,12 @@ Data Plane Auxiliary Engine (DPAE) and the OpenFlow controller
 using REST API calls
 """
 
+#*** Logging imports:
 import logging
 import logging.handlers
+import coloredlogs
+
+#*** General imports:
 import socket, sys
 import re
 import time
@@ -47,7 +51,7 @@ class ControlChannel(object):
     This class is instantiated by nmeta_dpae.py and provides methods to
     interact with the nmeta control plane
     """
-    def __init__(self, _nmeta, _config, if_name, sniff):
+    def __init__(self, _nmeta2dpae, _config, if_name, dp):
         #*** Get logging config values from config class:
         _logging_level_s = _config.get_value \
                                     ('controlplane_logging_level_s')
@@ -59,11 +63,13 @@ class ControlChannel(object):
         _logfacility = _config.get_value('logfacility')
         _syslog_format = _config.get_value('syslog_format')
         _console_log_enabled = _config.get_value('console_log_enabled')
+        _coloredlogs_enabled = _config.get_value('coloredlogs_enabled')
         _console_format = _config.get_value('console_format')
         #*** Set up Logging:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
         self.logger.propagate = False
+
         #*** Syslog:
         if _syslog_enabled:
             #*** Log to syslog on host specified in config.yaml:
@@ -78,12 +84,17 @@ class ControlChannel(object):
         #*** Console logging:
         if _console_log_enabled:
             #*** Log to the console:
-            self.console_handler = logging.StreamHandler()
-            console_formatter = logging.Formatter(_console_format)
-            self.console_handler.setFormatter(console_formatter)
-            self.console_handler.setLevel(_logging_level_c)
-            #*** Add console log handler to logger:
-            self.logger.addHandler(self.console_handler)
+            if _coloredlogs_enabled:
+                #*** Colourise the logs to make them easier to understand:
+                coloredlogs.install(level=_logging_level_c,
+                logger=self.logger, fmt=_console_format, datefmt='%H:%M:%S')
+            else:
+                #*** Add console log handler to logger:
+                self.console_handler = logging.StreamHandler()
+                console_formatter = logging.Formatter(_console_format)
+                self.console_handler.setFormatter(console_formatter)
+                self.console_handler.setLevel(_logging_level_c)
+                self.logger.addHandler(self.console_handler)
 
         #*** Set Python requests and urllib3 module logging levels:
         _logging_level_requests = _config.get_value \
@@ -102,12 +113,21 @@ class ControlChannel(object):
             return JSONEncoder_olddefault(self, o)
         JSONEncoder.default = JSONEncoder_newdefault
         self.config = _config
-        self.sniff = sniff
+        self._nmeta2dpae = _nmeta2dpae
+        self.dp = dp
 
         self.keepalive_interval = \
                         float(self.config.get_value('keepalive_interval'))
         self.keepalive_retries = \
                         int(self.config.get_value('keepalive_retries'))
+
+        #*** Get config parameters for sniff discover timings:
+        self.phase3_sniff_wait_time = \
+                        int(self.config.get_value('phase3_sniff_wait_time'))
+        self.phase3_queue_reads = \
+                        int(self.config.get_value('phase3_queue_reads'))
+        self.phase3_sniff_dc_timeout = \
+                        int(self.config.get_value('phase3_sniff_dc_timeout'))
 
     def phase1(self, api_base, if_name):
         """
@@ -156,8 +176,8 @@ class ControlChannel(object):
         if not api_response.validate(['hostname_controller', 'uuid_dpae',
                                         'uuid_controller', 'dpae2ctrl_mac',
                                         'ctrl2dpae_mac', 'dpae_ethertype']):
-            self.logger.error("Validation error %s", dpae_req_body.error)
-            return ({'status': 400, 'msg': dpae_req_body.error})
+            self.logger.error("Validation error %s", api_response.error)
+            return ({'status': 400, 'msg': api_response.error})
 
         uuid_dpae_response = api_response['uuid_dpae']
         if str(uuid_dpae_response) != str(self.our_uuid):
@@ -258,30 +278,27 @@ class ControlChannel(object):
         #*** Success:
         return 1
 
-    def phase3(self, api_base, if_name, dpae2ctrl_mac, ctrl2dpae_mac,
-                        dpae_ethertype):
+    def phase3(self, api_base, if_name, dpae2ctrl_mac,
+                ctrl2dpae_mac, dpae_ethertype):
         """
         Phase 3 (per DPAE sniffing interface)
         confirmation of sniffing packets
         """
         result = 0
-        #*** Max time in seconds to wait for sniff process:
-        sniff_wait_time = 1
-        sniff_timeout = 2
-        sniff_timeout_ps = 10
 
         #*** Start sniffer process:
         self.logger.info("Starting separate sniff process")
         queue = multiprocessing.Queue()
-        sniff_ps = multiprocessing.Process(target=self.sniff.discover_confirm,
+        sniff_ps = multiprocessing.Process(
+                        target=self._nmeta2dpae.dp.dp_discover,
                         args=(queue, if_name, dpae2ctrl_mac, ctrl2dpae_mac,
-                        dpae_ethertype, sniff_timeout_ps, self.our_uuid,
-                        self.uuid_controller))
+                        dpae_ethertype, self.phase3_sniff_dc_timeout,
+                        self.our_uuid, self.uuid_controller))
         sniff_ps.start()
 
         #*** Instruct controller to send confirmation packet:
         url_send_conf_pkt = api_base + '/send_conf_packet/'
-        
+
         json_send_conf_pkt = json.dumps({'hostname_dpae': self.hostname,
                                     'if_name': if_name,
                                     'uuid_dpae': self.our_uuid,
@@ -294,28 +311,39 @@ class ControlChannel(object):
                             "to send a sniff confirmation packet, "
                             "%s, %s, %s",
                             exc_type, exc_value, exc_traceback)
+            #*** Close the child sniff process down:
+            queue.close()
+            queue.join_thread()
+            sniff_ps.join()
             return 0
 
-        #*** Wait for a small amount of time:
-        time.sleep(sniff_wait_time)
-
-        #*** Get result:
-        if not queue.empty():
-            self.logger.debug("Reading queue from child sniff process...")
-            result = queue.get()
-            self.logger.debug("Phase 3 result of sniff confirmation is %s",
+        finished = 0
+        queue_reads = 1
+        #*** Loop reading queue a set number of times:
+        while not finished:
+            #*** Wait for a small amount of time:
+            time.sleep(self.phase3_sniff_wait_time)
+            #*** Get result:
+            if not queue.empty():
+                self.logger.debug("Reading queue from child sniff process "
+                                        "attempt=%s", queue_reads)
+                result = queue.get()
+                self.logger.debug("Phase 3 result of sniff confirmation is %s",
                                     result)
-        else:
-            self.logger.debug("Queue from child sniff process was empty")
+                break
+            else:
+                self.logger.debug("Queue from child sniff process was empty, "
+                                "attempt=%s", queue_reads)
+
+            queue_reads += 1
+            if queue_reads > self.phase3_queue_reads:
+                self.logger.info("Exceeded max sniff queue reads")
+                break
 
         #*** Close the child sniff process down:
         queue.close()
         queue.join_thread()
-        sniff_ps.join(sniff_timeout)
-
-        if sniff_ps.exitcode != 0:
-            self.logger.error("Phase 3 exception from sniff process")
-            return 0
+        sniff_ps.join()
 
         return result
 
@@ -351,7 +379,11 @@ class ControlChannel(object):
         need traffic classification
         """
         self.logger.debug("Sending API call to Controller to start TC")
-        json_start_tc = json.dumps({'tc_state': 'run'})
+        json_start_tc = json.dumps({'tc_state': 'run',
+                                    'dpae_version': self._nmeta2dpae.version,
+                                    'hostname_dpae': self.hostname,
+                                    'uuid_dpae': self.our_uuid,
+                                    'uuid_controller': self.uuid_controller})
         try:
             r = self.s.put(location, data=json_start_tc)
         except:
@@ -361,8 +393,32 @@ class ControlChannel(object):
                             exc_type, exc_value, exc_traceback)
             return 0
         if r.status_code != 200:
+            self.logger.error("Unexpected response from controller status=%s "
+                        "response=%s", r.status_code, r.text)
             return 0
-        return 1
+
+        #*** Decode API response as JSON:
+        api_response = JSON_Body(r.json())
+
+        if api_response.error:
+            self.logger.error("Bad JSON response for tc_start error=%s",
+                                api_response.error)
+            return 0
+
+        self.logger.debug("tc_start response body=%s", api_response.json)
+
+        #*** Validate required keys are present in JSON:
+        if not api_response.validate(['uuid_dpae', 'status', 'mode']):
+            self.logger.error("Validation error %s", api_response.error)
+            return 0
+        #*** Check has our UUID correct:
+        uuid_dpae_response = api_response['uuid_dpae']
+        if str(uuid_dpae_response) != str(self.our_uuid):
+            self.logger.error("tc_start response uuid_dpae mismatch")
+            return 0
+
+        #*** Success:
+        return api_response['mode']
 
     def tc_advise_controller(self, location, tc_result):
         """
@@ -397,7 +453,8 @@ class ControlChannel(object):
         If keepalive fails, then set an event flag
         for parent process.
         """
-        #*** TBD, use config for values and require multiple failures before marking as down
+        #*** TBD, use config for values and require multiple failures before
+        #***  marking as down
         failed_test = 0
         failed_concurrent = 0
         failed_total = 0

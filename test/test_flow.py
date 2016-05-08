@@ -1,11 +1,11 @@
 """
-nmeta2dpae Unit Tests
+nmeta2dpae flow.py Unit Tests
 
 Uses pytest, install with:
     sudo apt-get install python-pytest
 
 To run test, type in:
-    py.test tests_unit.py
+    py.test
 
 """
 
@@ -128,6 +128,7 @@ def test_flow():
     assert flow.tcp_rst() == 0
     assert flow.tcp_psh() == 0
     assert flow.tcp_ack() == 0
+    assert flow.payload == ""
     assert flow.packet_direction == 'c2s'
     assert flow.max_packet_size() == max(pkt_len[0:2])
 
@@ -148,6 +149,7 @@ def test_flow():
     assert flow.tcp_rst() == 0
     assert flow.tcp_psh() == 0
     assert flow.tcp_ack() == 1
+    assert flow.payload == ""
     assert flow.packet_direction == 's2c'
     assert flow.max_packet_size() == max(pkt_len[0:3])
 
@@ -168,6 +170,7 @@ def test_flow():
     assert flow.tcp_rst() == 0
     assert flow.tcp_psh() == 0
     assert flow.tcp_ack() == 1
+    assert flow.payload == ""
     assert flow.packet_direction == 'c2s'
     assert flow.max_packet_size() == max(pkt_len[0:4])
 
@@ -191,6 +194,7 @@ def test_flow():
     assert flow.tcp_rst() == 0
     assert flow.tcp_psh() == 1
     assert flow.tcp_ack() == 1
+    assert flow.payload == "GET\r\n"
     assert flow.packet_direction == 'c2s'
     assert flow.max_packet_size() == max(pkt_len[0:5])
 
@@ -211,6 +215,7 @@ def test_flow():
     assert flow.tcp_rst() == 0
     assert flow.tcp_psh() == 0
     assert flow.tcp_ack() == 1
+    assert flow.payload == ""
     assert flow.packet_direction == 's2c'
     assert flow.max_packet_size() == max(pkt_len[0:6])
 
@@ -231,6 +236,9 @@ def test_flow():
     assert flow.tcp_rst() == 0
     assert flow.tcp_psh() == 1
     assert flow.tcp_ack() == 1
+    #*** Convert payload back to hex for comparison:
+    assert flow.payload.encode("hex") == "485454502f312e31203430302042616420526571756573740d0a436f6e74656e742d4c656e6774683a2032320d0a436f6e74656e742d547970653a20746578742f706c61696e0d0a0d0a4d616c666f726d656420526571756573742d4c696e65"
+
     assert flow.packet_direction == 's2c'
     assert flow.max_packet_size() == max(pkt_len[0:7])
 
@@ -251,6 +259,7 @@ def test_flow():
     assert flow.tcp_rst() == 0
     assert flow.tcp_psh() == 0
     assert flow.tcp_ack() == 1
+    assert flow.payload == ""
     assert flow.packet_direction == 'c2s'
     assert flow.max_packet_size() == max(pkt_len)
 

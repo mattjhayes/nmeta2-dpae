@@ -24,15 +24,18 @@ from the controller.
 
 import logging
 import logging.handlers
+import coloredlogs
 
 import time
+
+#*** For active mode packet sending:
+from socket import socket, AF_PACKET, SOCK_RAW
 
 #*** nmeta-dpae imports:
 import config
 import controlchannel
-import tc
-import sniff
 import tc_policy_dpae
+import dp
 
 #*** Multiprocessing:
 import multiprocessing
@@ -46,6 +49,9 @@ class DPAE(object):
         """
         Initialise the DPAE class
         """
+        #*** Version number for compatibility checks:
+        self.version = '0.3.0'
+
         #*** Instantiate config class which imports configuration file
         #*** config.yaml and provides access to keys/values:
         self.config = config.Config()
@@ -61,11 +67,13 @@ class DPAE(object):
         _logfacility = self.config.get_value('logfacility')
         _syslog_format = self.config.get_value('syslog_format')
         _console_log_enabled = self.config.get_value('console_log_enabled')
+        _coloredlogs_enabled = self.config.get_value('coloredlogs_enabled')
         _console_format = self.config.get_value('console_format')
         #*** Set up Logging:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
         self.logger.propagate = False
+
         #*** Syslog:
         if _syslog_enabled:
             #*** Log to syslog on host specified in config.yaml:
@@ -80,12 +88,17 @@ class DPAE(object):
         #*** Console logging:
         if _console_log_enabled:
             #*** Log to the console:
-            self.console_handler = logging.StreamHandler()
-            console_formatter = logging.Formatter(_console_format)
-            self.console_handler.setFormatter(console_formatter)
-            self.console_handler.setLevel(_logging_level_c)
-            #*** Add console log handler to logger:
-            self.logger.addHandler(self.console_handler)
+            if _coloredlogs_enabled:
+                #*** Colourise the logs to make them easier to understand:
+                coloredlogs.install(level=_logging_level_c,
+                logger=self.logger, fmt=_console_format, datefmt='%H:%M:%S')
+            else:
+                #*** Add console log handler to logger:
+                self.console_handler = logging.StreamHandler()
+                console_formatter = logging.Formatter(_console_format)
+                self.console_handler.setFormatter(console_formatter)
+                self.console_handler.setLevel(_logging_level_c)
+                self.logger.addHandler(self.console_handler)
 
         self.api_url = str(self.config.get_value('nmeta_controller_address'))
         self.api_port = str(self.config.get_value('nmeta_controller_port'))
@@ -109,9 +122,6 @@ class DPAE(object):
         #*** Instantiate TC Policy class:
         self.tc_policy = tc_policy_dpae.TCPolicy(self.config)
 
-        #*** Instantiate Sniff Class:
-        self.sniff = sniff.Sniff(self, self.config)
-
         #*** Uncomment this for extra multiprocessing debug:
         #multiprocessing.log_to_stderr()
         #*** But if you're really stuck, run pylint on all .py files
@@ -123,12 +133,12 @@ class DPAE(object):
         """
         Run per interface that sniffing will run on as separate process
         """
+        #*** Instantiate Data Plane (DP) class:
+        self.dp = dp.DP(self.config)
+
         #*** Instantiate Control Channel Class:
         self.controlchannel = controlchannel.ControlChannel(self, self.config,
-                                    if_name, self.sniff)
-
-        #*** Instantiate TC Classification class:
-        self.tc = tc.TC(self.config)
+                                    if_name, self.dp)
 
         finished = 0
         while not finished:
@@ -221,19 +231,18 @@ class DPAE(object):
             if 'traffic_classification' in phase4_services:
                 self.logger.info("Phase 4 Traffic Classification service "
                                     "starting")
-                self.tc_run(if_name, self.controlchannel, location)
+                self.cp_run(if_name, self.controlchannel, location)
 
-    def tc_run(self, if_name, controlchannel, location):
+    def cp_run(self, if_name, controlchannel, location):
         """
-        Run Traffic Classification for an interface,
-        including separate sniffing process and communication via
-        a queue
+        Run Control Plane (CP) Traffic Classification for an interface
         """
         #*** Load main policy:
         location_policy = location + '/main_policy/'
         main_policy_yaml = 0
         while not main_policy_yaml:
             main_policy_yaml = controlchannel.get_policy(location_policy)
+            time.sleep(1)
         self.logger.debug("Retrieved main_policy_yaml text %s",
                                                         main_policy_yaml)
 
@@ -258,42 +267,28 @@ class DPAE(object):
         self.logger.debug("TC optimised rules are %s",
                                             self.tc_policy.opt_rules)
 
-        #*** Set local identity harvest flags in tc for efficient access:
-        self.logger.debug("Setting Identity Harvest Flags")
-        self.tc.id_arp = self.tc_policy.get_id_flag(if_name, 'arp')
-        self.tc.id_lldp = self.tc_policy.get_id_flag(if_name, 'lldp')
-        self.tc.id_dns = self.tc_policy.get_id_flag(if_name, 'dns')
-        self.tc.id_dhcp = self.tc_policy.get_id_flag(if_name, 'dhcp')
-
-        #*** Set up TC classifiers to run in tc class:
-        _classifiers = self.tc_policy.get_tc_classifiers(if_name)
-        self.tc.instantiate_classifiers(_classifiers)
-
-        self.logger.debug("Set to run classifiers: %s", self.tc.classifiers)
-
-        #*** Start a sniffer process:
-        self.logger.info("Starting separate sniff process for TC")
-        sniff_queue = multiprocessing.Queue()
-        jobs = []
-        sniff_ps = multiprocessing.Process(target=self.sniff.tc_sniff,
-                        args=(sniff_queue, if_name))
-        jobs.append(sniff_ps)
+        #*** Start a Data Plane process:
+        self.logger.info("Starting Data Plane process")
+        interplane_queue = multiprocessing.Queue()
+        sniff_ps = multiprocessing.Process(target=self.dp.dp_run,
+                        args=(interplane_queue, self.tc_policy, if_name))
         sniff_ps.start()
 
         #*** Ask controlchannel to tell Controller to start sending
         #***  packets to us:
         self.logger.info("Tell Controller to start sending us packets")
         location_tc_state = location + '/services/tc/state/'
-        tc_running = 0
-        while not tc_running:
+        tc_mode = ""
+        while not tc_mode:
             self.logger.debug("Attempting to start TC with controller "
                                 "for int=%s", if_name)
-            tc_running = controlchannel.tc_start(location_tc_state)
-            if not tc_running:
+            tc_mode = controlchannel.tc_start(location_tc_state)
+            if not tc_mode:
                 #*** Setting state to run failed, retry after a bit...
                 self.logger.error("Failed to start TC on Controller."
                                     "Will retry...")
                 time.sleep(1)
+
         #*** Start keepalive child process to regularly check
         #***  that controller is alive and session is still valid:
         keepalive_ev = multiprocessing.Event()
@@ -304,16 +299,14 @@ class DPAE(object):
                                  if_name))
         keepalive_child.start()
 
-        #*** Loop reading the queue and passing packets to tc_policy
+        #*** Read the queue for data plane events escalated to control plane
+        #***  and check keepalive validity:
         finished = 0
         location_tc_classify = location + '/services/tc/classify/'
         while not finished:
             #*** Get result:
-            if not sniff_queue.empty():
-                pkt, pkt_receive_timestamp = sniff_queue.get()
-                #*** Send packet to tc for classification:
-                tc_result = self.tc.classify_dpkt(pkt, pkt_receive_timestamp,
-                                                            if_name)
+            if not interplane_queue.empty():
+                tc_result = interplane_queue.get()
                 if 'type' in tc_result:
                     if tc_result['type'] != 'none':
                         #*** Send via API to controller:
@@ -321,7 +314,6 @@ class DPAE(object):
                                                             tc_result)
                         controlchannel.tc_advise_controller(
                                             location_tc_classify, tc_result)
-
             else:
                 time.sleep(.01)
             #*** Check keepalive still valid:

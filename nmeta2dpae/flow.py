@@ -67,6 +67,7 @@ class Flow(object):
         flow.tcp_urg()      # True if TCP URG flag is set in the current packet
         flow.tcp_ece()      # True if TCP ECE flag is set in the current packet
         flow.tcp_cwr()      # True if TCP CWR flag is set in the current packet
+        flow.payload        # Payload of TCP of latest packet in flow
         flow.packet_length  # Length in bytes of the current packet on wire
         flow.packet_direction   # c2s (client to server), s2c or unknown
 
@@ -112,6 +113,9 @@ class Flow(object):
         self.tcp_src = 0
         self.tcp_dst = 0
         self.tcp_flags = 0
+        self.tcp_seq = 0
+        self.tcp_acq = 0
+        self.payload = 0
 
         #*** Initialise flow variables:
         self.finalised = 0
@@ -173,6 +177,7 @@ class Flow(object):
         self.tcp_seq = tcp.seq
         self.tcp_acq = tcp.ack
         self.tcp_flags = tcp.flags
+        self.payload = tcp.data
         #*** Generate a hash unique to flow for packets in either direction
         self.fcip_hash = _hash_5tuple(self.ip_src, self.ip_dst, self.tcp_src,
                                         self.tcp_dst, proto)
@@ -231,8 +236,9 @@ class Flow(object):
             self.fcip_doc['packet_count'] += 1
             self.packet_count = self.fcip_doc['packet_count']
             if self.fcip_doc['packet_count'] >= self.max_packet_count:
-                #*** TBD
+                #*** TBD:
                 self.fcip_doc['finalised'] = 1
+                self.logger.debug("Finalising...")
             #*** Add packet timestamps, tcp flags etc:
             self.fcip_doc['packet_timestamps'].append(pkt_receive_timestamp)
             self.fcip_doc['tcp_flags'].append(tcp.flags)
