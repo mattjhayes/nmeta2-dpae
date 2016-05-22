@@ -103,6 +103,31 @@ class DP(object):
         """
         self.logger.debug("Starting data plane discover confirm on %s",
                                                             if_name)
+
+        #*** Check promisc mode and enable if not turned on:
+        promisc = 0
+        try:
+            promisc = self.sniff.get_promiscuous_mode(if_name)
+        except Exception, e:
+            self.logger.error("Exception setting promiscuous mode: %s",
+                                        e, exc_info=True)
+            result = 0
+            queue.put(result)
+            return result
+
+        if not promisc:
+            #*** Set interface to promiscuous mode so we see all packets:
+            try:
+                self.sniff.set_promiscuous_mode(if_name)
+            except Exception, e:
+                self.logger.error("Exception setting promiscuous mode: %s",
+                                            e, exc_info=True)
+                result = 0
+                queue.put(result)
+                return result
+        else:
+            self.logger.info("Interface already in promiscuous mode")
+
         #*** Run the sniffer to see if we can capture a discover
         #***  confirm packet:
         try:

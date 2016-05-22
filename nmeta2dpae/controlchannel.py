@@ -296,6 +296,10 @@ class ControlChannel(object):
                         self.our_uuid, self.uuid_controller))
         sniff_ps.start()
 
+        #** Wait a short period of time to allow packet sniffer to start:
+        self.logger.info("A short pause here to allow packet sniffer to start")
+        time.sleep(1)
+
         #*** Instruct controller to send confirmation packet:
         url_send_conf_pkt = api_base + '/send_conf_packet/'
 
