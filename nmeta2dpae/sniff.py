@@ -35,8 +35,6 @@ import coloredlogs
 import ctypes
 import fcntl
 
-
-
 #*** Constants for setting Ethernet interface promiscuous mode:
 IFF_PROMISC = 0x100
 SIOCGIFFLAGS = 0x8913
@@ -105,7 +103,7 @@ class Sniff(object):
         This function sniffs packets from a NIC.
         It passes the packets to the tc module for classification and
         returns any TC results to parent process via a queue.
-        
+
         In active mode it also sends the processed packet back to
         the switch
         """
@@ -121,7 +119,6 @@ class Sniff(object):
             socket.AF_PACKET, socket.SOCK_RAW, socket.htons(ETH_P_ALL))
         mysock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
         mysock.bind((if_name, ETH_P_ALL))
-        self.set_promiscuous_mode(if_name, mysock)
 
         finished = 0
         while not finished:
@@ -146,7 +143,7 @@ class Sniff(object):
                     self.logger.debug("Sending result to control plane: %s",
                                                             tc_result)
                     queue.put(tc_result)
-                    
+
             if tc_mode == 'active':
                 #*** Active Mode: send the packet back to the switch:
                 try:
@@ -162,7 +159,6 @@ class Sniff(object):
         and returns 1 if seen and valid, otherwise 0 after expiry of
         timeout period
         """
-
         #*** Start layer 2 socket for packet sniffing:
         self.logger.info("Starting socket sniff connection to interface=%s",
                             if_name)
@@ -170,7 +166,6 @@ class Sniff(object):
             socket.AF_PACKET, socket.SOCK_RAW, socket.htons(ETH_P_ALL))
         mysock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
         mysock.bind((if_name, ETH_P_ALL))
-        self.set_promiscuous_mode(if_name, mysock)
 
         start_time = time.time()
         elapsed_time = 0
@@ -213,7 +208,7 @@ class Sniff(object):
         #*** Return the packet payload (if any, otherwise empty string):
         return payload
 
-    def set_promiscuous_mode(self, if_name, mysock):
+    def set_promiscuous_mode(self, if_name):
         """
         Set a given Ethernet interface to promiscuous mode
         so that it can receive packets destined for any
@@ -222,15 +217,53 @@ class Sniff(object):
         #*** For setting Ethernet interface promiscuous mode:
         self.logger.info("Setting promiscuous mode on interface=%s",
                             if_name)
+
+        #*** Create a socket to use:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+        #*** Create an instance of Ifreq class to use and assign interface:
         ifr = Ifreq()
         ifr.ifr_ifrn = if_name
+
         #*** Get the flags from the interface:
-        fcntl.ioctl(mysock.fileno(), SIOCGIFFLAGS, ifr)
+        fcntl.ioctl(sock.fileno(), SIOCGIFFLAGS, ifr)
+
         #*** Update flags with promiscuous mode:
         ifr.ifr_flags |= IFF_PROMISC
+
         #*** Apply updated flags to the interface:
-        fcntl.ioctl(mysock.fileno(), SIOCSIFFLAGS, ifr)
+        fcntl.ioctl(sock.fileno(), SIOCSIFFLAGS, ifr)
+
+        sock.close()
         return 1
+
+    def get_promiscuous_mode(self, if_name):
+        """
+        Return the promiscuous mode of an interface.
+        1 is promiscuous mode enabled
+        0 is promiscuous mode disabled
+        """
+        self.logger.info("Checking promiscuous mode on interface=%s",
+                            if_name)
+        promisc = 0
+
+        #*** Create a socket to use:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+        #*** Create an instance of Ifreq class to use and assign interface:
+        ifr = Ifreq()
+        ifr.ifr_ifrn = if_name
+
+        #*** Get the flags from the interface:
+        fcntl.ioctl(sock.fileno(), SIOCGIFFLAGS, ifr)
+
+        #*** Check the status of the promiscuous flag:
+        if ifr.ifr_flags & IFF_PROMISC:
+            promisc = 1
+        self.logger.info("interface=%s flags=%s promiscuous=%s", if_name,
+                    bin(ifr.ifr_flags), promisc)
+        sock.close()
+        return promisc
 
 class Ifreq(ctypes.Structure):
     """
