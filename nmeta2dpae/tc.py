@@ -246,6 +246,10 @@ class TC(object):
         #***  TBD, do on more than just IPv4 TCP...:
         if tcp and self.flow.packet_count >= \
                                 self.suppress_flow_pkt_count_initial:
+            self.logger.debug("Flow is candidate for suppression src_ip=%s "
+                                    "src_port=%s dst_ip=%s dst_port=%s",
+                                    self.flow.ip_src, self.flow.tcp_src,
+                                    self.flow.ip_dst, self.flow.tcp_dst)
             #*** Only suppress if there's been sufficient backoff since
             #***  any previous suppressions to prevent overload of ctrlr
             if not self.flow.suppressed or (self.flow.packet_count > \
@@ -255,16 +259,21 @@ class TC(object):
                 self.flow.set_suppress_flow()
                 self.logger.debug("Suppressing TCP stream src_ip=%s "
                                     "src_port=%s dst_ip=%s dst_port=%s",
-                                    self.flow.ip_src,
-                                    self.flow.tcp_src,
-                                    self.flow.ip_dst,
-                                    self.flow.tcp_dst)
+                                    self.flow.ip_src, self.flow.tcp_src,
+                                    self.flow.ip_dst, self.flow.tcp_dst)
                 if result['type'] == 'none':
                     result['type'] = 'suppress'
                 elif result['type'] == 'treatment':
                     result['type'] = 'treatment+suppress'
                 else:
                     self.logger.error("Unknown result type %s", result['type'])
+            else:
+                self.logger.debug("Deferring suppression TCP stream src_ip=%s "
+                                    "src_port=%s dst_ip=%s dst_port=%s",
+                                    self.flow.ip_src, self.flow.tcp_src,
+                                    self.flow.ip_dst, self.flow.tcp_dst)
+                self.logger.debug("    self.flow.suppressed=%s",
+                                        self.flow.suppressed)
 
         if result['type'] != 'none':
             #*** Add context to result:

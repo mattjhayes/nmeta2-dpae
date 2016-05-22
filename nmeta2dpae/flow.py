@@ -239,6 +239,8 @@ class Flow(object):
                 #*** TBD:
                 self.fcip_doc['finalised'] = 1
                 self.logger.debug("Finalising...")
+            #*** Read suppressed status to variable:
+            self.suppressed = self.fcip_doc['suppressed']
             #*** Add packet timestamps, tcp flags etc:
             self.fcip_doc['packet_timestamps'].append(pkt_receive_timestamp)
             self.fcip_doc['tcp_flags'].append(tcp.flags)
