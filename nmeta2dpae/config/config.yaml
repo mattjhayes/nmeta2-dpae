@@ -24,12 +24,12 @@ syslog_format: "sev=%(levelname)s module=%(name)s func=%(funcName)s %(message)s"
 #
 #*** Syslog Logging Levels Per Module
 #*** Values can be one of CRITICAL|ERROR|WARNING|INFO|DEBUG:
-nmeta_dpae_logging_level_s: DEBUG
-sniff_logging_level_s: DEBUG
-controlplane_logging_level_s: DEBUG
-dp_logging_level_s: DEBUG
-tc_logging_level_s: DEBUG
-tc_policy_dpae_logging_level_s: DEBUG
+nmeta_dpae_logging_level_s: INFO
+sniff_logging_level_s: INFO
+controlplane_logging_level_s: INFO
+dp_logging_level_s: INFO
+tc_logging_level_s: INFO
+tc_policy_dpae_logging_level_s: INFO
 #
 #========== CONSOLE LOGGING =========================
 #*** Set to 1 if want to log to console:
