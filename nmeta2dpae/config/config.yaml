@@ -6,6 +6,11 @@ nmeta_controller_address: http://172.16.0.3
 nmeta_controller_port: 8080
 nmeta_api_path: nmeta/v2/aux/
 #
+#========== SNIFFING CONFIG ===========================
+#*** Interface names to sniff on (comma separated, no spaces)
+#sniff_if_names: eth1,eth2
+sniff_if_names: eth1
+#
 #========== SYSLOG ==================================
 #*** Set to 1 if want to log to syslog:
 syslog_enabled: 1
@@ -52,11 +57,6 @@ dp_logging_level_c: DEBUG
 tc_logging_level_c: DEBUG
 tc_policy_dpae_logging_level_c: DEBUG
 requests_logging_level: CRITICAL
-#
-#========== SNIFFING CONFIG ===========================
-#*** Interface names to sniff on (comma separated, no spaces)
-#sniff_if_names: eth1,eth2
-sniff_if_names: eth1
 #
 #========== DPAE JOIN TIMING PARAMETERS ===============
 #*** Time in seconds to wait between sending Phase 3 API request and
