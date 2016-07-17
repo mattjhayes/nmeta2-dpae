@@ -40,6 +40,9 @@ IFF_PROMISC = 0x100
 SIOCGIFFLAGS = 0x8913
 SIOCSIFFLAGS = 0x8914
 
+#*** MAC destinations to not forward:
+LLDP_NEAREST_BRIDGE = '01:80:c2:00:00:0e'
+
 #*** TBD, this should be autodetected:
 MTU = 6000
 
@@ -145,6 +148,14 @@ class Sniff(object):
                     queue.put(tc_result)
 
             if tc_mode == 'active':
+                #*** Some types of packets shouldn't be forwarded:
+                #*** Read into dpkt (expensive?):
+                eth = dpkt.ethernet.Ethernet(pkt)
+                if mac_addr(eth.dst) == LLDP_NEAREST_BRIDGE:
+                    # TEMP LOGGING:
+                    self.logger.info("NOT SENDING LLDP from %s to %s",
+                                                eth.src, eth.dst)
+                    continue
                 #*** Active Mode: send the packet back to the switch:
                 try:
                     mysock.send(pkt)
