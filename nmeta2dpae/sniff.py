@@ -152,9 +152,6 @@ class Sniff(object):
                 #*** Read into dpkt (expensive?):
                 eth = dpkt.ethernet.Ethernet(pkt)
                 if mac_addr(eth.dst) == LLDP_NEAREST_BRIDGE:
-                    # TEMP LOGGING:
-                    self.logger.info("NOT SENDING LLDP from %s to %s",
-                                                eth.src, eth.dst)
                     continue
                 #*** Active Mode: send the packet back to the switch:
                 try:
