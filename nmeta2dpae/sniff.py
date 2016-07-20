@@ -41,7 +41,9 @@ SIOCGIFFLAGS = 0x8913
 SIOCSIFFLAGS = 0x8914
 
 #*** MAC destinations to not forward:
-LLDP_NEAREST_BRIDGE = '01:80:c2:00:00:0e'
+MAC_LLDP_NEAREST_BRIDGE = '01:80:c2:00:00:0e'
+MAC_BROADCAST = 'ff:ff:ff:ff:ff:ff'
+DO_NOT_FORWARD_MACS = (MAC_LLDP_NEAREST_BRIDGE, MAC_BROADCAST)
 
 #*** TBD, this should be autodetected:
 MTU = 6000
@@ -151,7 +153,7 @@ class Sniff(object):
                 #*** Some types of packets shouldn't be forwarded:
                 #*** Read into dpkt (expensive?):
                 eth = dpkt.ethernet.Ethernet(pkt)
-                if mac_addr(eth.dst) == LLDP_NEAREST_BRIDGE:
+                if mac_addr(eth.dst) in DO_NOT_FORWARD_MACS:
                     continue
                 #*** Active Mode: send the packet back to the switch:
                 try:
