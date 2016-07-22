@@ -50,7 +50,7 @@ class DPAE(object):
         Initialise the DPAE class
         """
         #*** Version number for compatibility checks:
-        self.version = '0.3.3'
+        self.version = '0.3.4'
 
         #*** Instantiate config class which imports configuration file
         #*** config.yaml and provides access to keys/values:
