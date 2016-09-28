@@ -188,11 +188,23 @@ class Flow(object):
             #*** Get flow direction (which way is TCP initiated). Client is
             #***  the end that sends the initial TCP SYN:
             if _is_tcp_syn(tcp.flags):
-                self.logger.debug("Matched TCP SYN, src_ip=%s", self.ip_src)
+                self.logger.debug("Matched TCP SYN first pkt, src_ip=%s",
+                                                                self.ip_src)
                 self.client = self.ip_src
                 self.server = self.ip_dst
                 self.packet_direction = 'c2s'
-
+            elif _is_tcp_synack(tcp.flags):
+                self.logger.debug("Matched TCP SYN+ACK first pkt, src_ip=%s",
+                                                                self.ip_src)
+                self.client = self.ip_dst
+                self.server = self.ip_src
+                self.packet_direction = 's2c'
+            else:
+                self.logger.debug("Unmatch state first pkt, tcp_flags=%s",
+                                                                tcp.flags)
+                self.client = 0
+                self.server = 0
+                self.packet_direction = 'unknown'
             #*** Neither direction found, so add to FCIP database:
             self.fcip_doc = {'hash': self.fcip_hash,
                         'ip_A': self.ip_src,
@@ -207,7 +219,7 @@ class Flow(object):
                         'packet_lengths': [self.packet_length,],
                         'client': self.client,
                         'server': self.server,
-                        'packet_directions': ['c2s',],
+                        'packet_directions': [self.packet_direction,],
                         'suppressed': 0}
             self.logger.debug("FCIP: Adding record for %s to DB",
                                                 self.fcip_doc)
@@ -417,10 +429,20 @@ class Flow(object):
 
 def _is_tcp_syn(tcp_flags):
     """
-    Passed a TCP flags object and return 1 if it
+    Passed a TCP flags object (hex) and return 1 if it
     contains a TCP SYN and no other flags
     """
     if tcp_flags == 2:
+        return 1
+    else:
+        return 0
+
+def _is_tcp_synack(tcp_flags):
+    """
+    Passed a TCP flags object (hex) and return 1 if it
+    contains TCP SYN + ACK flags and no other flags
+    """
+    if tcp_flags == 0x12:
         return 1
     else:
         return 0
