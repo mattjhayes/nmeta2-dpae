@@ -69,7 +69,15 @@ class Flow(object):
         flow.tcp_cwr()      # True if TCP CWR flag is set in the current packet
         flow.payload        # Payload of TCP of latest packet in flow
         flow.packet_length  # Length in bytes of the current packet on wire
-        flow.packet_direction   # c2s (client to server), s2c or unknown
+        flow.packet_direction   # c2s (client to server) or s2c
+                                    directionality based on first observed
+                                    packet having SYN or SYN+ACK flag,
+                                    otherwise client assumed as source IP
+                                    of first packet and verified_direction
+                                    set to 0 (i.e. don't trust packet_direction
+                                    unless verified_direction is set)
+        flow.verified_direction # verified-SYN, verified-SYNACK or 0
+                                    (unverified)
 
         # Variables for the whole flow:
         flow.finalised      # A classification has been made
@@ -126,6 +134,7 @@ class Flow(object):
         self.client = 0
         self.server = 0
         self.packet_direction = 'unknown'
+        self.verified_direction = 0
         self.suppressed = 0
 
         #*** Start mongodb:
@@ -193,18 +202,21 @@ class Flow(object):
                 self.client = self.ip_src
                 self.server = self.ip_dst
                 self.packet_direction = 'c2s'
+                self.verified_direction = 'verified-SYN'
             elif _is_tcp_synack(tcp.flags):
                 self.logger.debug("Matched TCP SYN+ACK first pkt, src_ip=%s",
                                                                 self.ip_src)
                 self.client = self.ip_dst
                 self.server = self.ip_src
                 self.packet_direction = 's2c'
+                self.verified_direction = 'verified-SYNACK'
             else:
                 self.logger.debug("Unmatch state first pkt, tcp_flags=%s",
                                                                 tcp.flags)
                 self.client = 0
                 self.server = 0
-                self.packet_direction = 'unknown'
+                self.packet_direction = 'c2s'
+                self.verified_direction = 0
             #*** Neither direction found, so add to FCIP database:
             self.fcip_doc = {'hash': self.fcip_hash,
                         'ip_A': self.ip_src,
@@ -220,6 +232,7 @@ class Flow(object):
                         'client': self.client,
                         'server': self.server,
                         'packet_directions': [self.packet_direction,],
+                        'verified_direction': self.verified_direction,
                         'suppressed': 0}
             self.logger.debug("FCIP: Adding record for %s to DB",
                                                 self.fcip_doc)
@@ -253,6 +266,8 @@ class Flow(object):
                 self.logger.debug("Finalising...")
             #*** Read suppressed status to variable:
             self.suppressed = self.fcip_doc['suppressed']
+            #*** Read verified_direction status to variable:
+            self.verified_direction = self.fcip_doc['verified_direction']
             #*** Add packet timestamps, tcp flags etc:
             self.fcip_doc['packet_timestamps'].append(pkt_receive_timestamp)
             self.fcip_doc['tcp_flags'].append(tcp.flags)

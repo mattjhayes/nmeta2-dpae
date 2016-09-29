@@ -5,7 +5,7 @@ Uses pytest, install with:
     sudo apt-get install python-pytest
 
 To run test, type in:
-    py.test
+    py.test -vs
 
 """
 
@@ -148,6 +148,7 @@ def test_flow():
     assert flow.tcp_ack() == 0
     assert flow.payload == ""
     assert flow.packet_direction == 'c2s'
+    assert flow.verified_direction == 'verified-SYN'
     assert flow.max_packet_size() == max(pkt_len[0:2])
 
     #*** Test Flow 1 Packet 2:
@@ -169,6 +170,7 @@ def test_flow():
     assert flow.tcp_ack() == 1
     assert flow.payload == ""
     assert flow.packet_direction == 's2c'
+    assert flow.verified_direction == 'verified-SYN'
     assert flow.max_packet_size() == max(pkt_len[0:3])
 
     #*** Test Flow 1 Packet 3:
@@ -190,6 +192,7 @@ def test_flow():
     assert flow.tcp_ack() == 1
     assert flow.payload == ""
     assert flow.packet_direction == 'c2s'
+    assert flow.verified_direction == 'verified-SYN'
     assert flow.max_packet_size() == max(pkt_len[0:4])
 
     #*** Random packet to ensure it doesn't count against flow 1:
@@ -214,6 +217,7 @@ def test_flow():
     assert flow.tcp_ack() == 1
     assert flow.payload == "GET\r\n"
     assert flow.packet_direction == 'c2s'
+    assert flow.verified_direction == 'verified-SYN'
     assert flow.max_packet_size() == max(pkt_len[0:5])
 
     #*** Test Flow 1 Packet 5:
@@ -235,6 +239,7 @@ def test_flow():
     assert flow.tcp_ack() == 1
     assert flow.payload == ""
     assert flow.packet_direction == 's2c'
+    assert flow.verified_direction == 'verified-SYN'
     assert flow.max_packet_size() == max(pkt_len[0:6])
 
     #*** Test Flow 1 Packet 6:
@@ -256,8 +261,8 @@ def test_flow():
     assert flow.tcp_ack() == 1
     #*** Convert payload back to hex for comparison:
     assert flow.payload.encode("hex") == "485454502f312e31203430302042616420526571756573740d0a436f6e74656e742d4c656e6774683a2032320d0a436f6e74656e742d547970653a20746578742f706c61696e0d0a0d0a4d616c666f726d656420526571756573742d4c696e65"
-
     assert flow.packet_direction == 's2c'
+    assert flow.verified_direction == 'verified-SYN'
     assert flow.max_packet_size() == max(pkt_len[0:7])
 
     #*** Test Flow 1 Packet 7:
@@ -279,6 +284,7 @@ def test_flow():
     assert flow.tcp_ack() == 1
     assert flow.payload == ""
     assert flow.packet_direction == 'c2s'
+    assert flow.verified_direction == 'verified-SYN'
     assert flow.max_packet_size() == max(pkt_len)
 
     #*** Test Flow 3 packet for TCP FIN flag:
@@ -288,8 +294,9 @@ def test_flow():
     assert flow.tcp_rst() == 0
     assert flow.tcp_psh() == 0
     assert flow.tcp_ack() == 1
+    assert flow.verified_direction == 0
 
-    #*** Test Flow 4 packet for TCP RST flag and no client-server direction:
+    #*** Test Flow 4 packet for TCP RST flag:
     flow.ingest_packet(flow4_pkt1, flow4_pkt1_timestamp)
     assert flow.tcp_fin() == 0
     assert flow.tcp_syn() == 0
@@ -298,7 +305,8 @@ def test_flow():
     assert flow.tcp_ack() == 1
     assert flow.client == 0
     assert flow.server == 0
-    assert flow.packet_direction == 'unknown'
+    assert flow.packet_direction == 'c2s'
+    assert flow.verified_direction == 0
 
     #*** Test Flow 5 packet for reversed client-server direction
     #*** This is the first packet seen in flow and is a SYN+ACK from server
@@ -311,6 +319,7 @@ def test_flow():
     assert flow.client == '10.1.0.1'
     assert flow.server == '10.1.0.2'
     assert flow.packet_direction == 's2c'
+    assert flow.verified_direction == 'verified-SYNACK'
 
     #*** TBD: test flow.tcp_urg(), flow.tcp_ece(), flow.tcp_cwr()
     #*** TBD: IPv6 tests
