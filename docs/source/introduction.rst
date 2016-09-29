@@ -2,7 +2,7 @@
 Introduction
 ============
 
-The nmeta2dpae project works with the
+The nmeta2dpae project is a sub-system of the
 `nmeta2 project <https://github.com/mattjhayes/nmeta2>`_
 
 Distributed System
@@ -34,8 +34,8 @@ Disclaimer
 
 This code carries no warrantee whatsoever. Use at your own risk.
 
-How to Contribute
------------------
+How to Contribute to the Code
+-----------------------------
 
 Code contributions and suggestions are welcome. Enhancement or bug fixes
 can be raised as issues through GitHub.
