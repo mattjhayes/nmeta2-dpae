@@ -1,0 +1,5 @@
+#*** Used for ReadtheDocs virtualenv loading of modules:
+coloredlogs
+pymongo
+dpkt
+scapy
