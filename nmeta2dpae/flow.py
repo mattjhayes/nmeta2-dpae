@@ -213,8 +213,8 @@ class Flow(object):
             else:
                 self.logger.debug("Unmatch state first pkt, tcp_flags=%s",
                                                                 tcp.flags)
-                self.client = 0
-                self.server = 0
+                self.client = self.ip_src
+                self.server = self.ip_dst
                 self.packet_direction = 'c2s'
                 self.verified_direction = 0
             #*** Neither direction found, so add to FCIP database:
