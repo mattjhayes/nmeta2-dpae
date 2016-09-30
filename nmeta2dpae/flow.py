@@ -64,47 +64,85 @@ class Flow(object):
         flow.tcp_dst
           TCP dest port of latest packet in flow
 
-        flow.tcp_seq        # TCP sequence number of latest packet in flow
-        flow.tcp_acq        # TCP acknowledgement number of latest
-                            #  packet in flow
+        flow.tcp_seq
+          TCP sequence number of latest packet in flow
 
-        flow.tcp_fin()      # True if TCP FIN flag is set in the current packet
-        flow.tcp_syn()      # True if TCP SYN flag is set in the current packet
-        flow.tcp_rst()      # True if TCP RST flag is set in the current packet
-        flow.tcp_psh()      # True if TCP PSH flag is set in the current packet
-        flow.tcp_ack()      # True if TCP ACK flag is set in the current packet
-        flow.tcp_urg()      # True if TCP URG flag is set in the current packet
-        flow.tcp_ece()      # True if TCP ECE flag is set in the current packet
-        flow.tcp_cwr()      # True if TCP CWR flag is set in the current packet
-        flow.payload        # Payload of TCP of latest packet in flow
-        flow.packet_length  # Length in bytes of the current packet on wire
-        flow.packet_direction   # c2s (client to server) or s2c
-                                    directionality based on first observed
-                                    packet having SYN or SYN+ACK flag,
-                                    otherwise client assumed as source IP
-                                    of first packet and verified_direction
-                                    set to 0 (i.e. don't trust packet_direction
-                                    unless verified_direction is set)
-        flow.verified_direction # verified-SYN, verified-SYNACK or 0
-                                    (unverified)
+        flow.tcp_acq
+          TCP acknowledgement number of latest packet in flow
 
-        # Variables for the whole flow:
-        flow.finalised      # A classification has been made
-        flow.suppressed     # The flow packet count number when
-                            #  a request was made to controller to not see
-                            #  further packets in this flow. 0 is
-                            #  not suppressed
-        flow.packet_count   # Unique packets registered for the flow
-        flow.client         # The IP that is the originator of the TCP
-                            #  session (if known, otherwise 0)
-        flow.server         # The IP that is the destination of the TCP session
-                            #  session (if known, otherwise 0)
+        flow.tcp_fin()
+          True if TCP FIN flag is set in the current packet
 
-    Methods available for Classifiers (assumes class instantiated as
-    an object called 'flow'):
-        flow.max_packet_size()           # Size of largest packet in the flow
-        flow.max_interpacket_interval()  # TBD
-        flow.min_interpacket_interval()  # TBD
+        flow.tcp_syn()
+          True if TCP SYN flag is set in the current packet
+
+        flow.tcp_rst()
+          True if TCP RST flag is set in the current packet
+
+        flow.tcp_psh()
+          True if TCP PSH flag is set in the current packet
+
+        flow.tcp_ack()
+          True if TCP ACK flag is set in the current packet
+
+        flow.tcp_urg()
+          True if TCP URG flag is set in the current packet
+
+        flow.tcp_ece()
+          True if TCP ECE flag is set in the current packet
+
+        flow.tcp_cwr()
+          True if TCP CWR flag is set in the current packet
+
+        flow.payload
+          Payload of TCP of latest packet in flow
+
+        flow.packet_length
+          Length in bytes of the current packet on wire
+
+        flow.packet_direction
+          c2s (client to server) or s2c directionality based on first observed
+          packet having SYN or SYN+ACK flag, otherwise client assumed as source
+          IP of first packet and verified_direction set to 0 (i.e. 
+          don't trust packet_direction unless verified_direction is set)
+
+        Variables for the whole flow
+        ----------------------------
+
+        flow.verified_direction
+          Describes how the directionality of the flow was ascertained.
+          Values can be verified-SYN, verified-SYNACK or 0 (unverified)
+
+        flow.finalised
+          A classification has been made
+
+        flow.suppressed
+          The flow packet count number when a request was made to controller
+          to not see further packets in this flow. 0 is not suppressed
+
+        flow.packet_count
+          Unique packets registered for the flow
+
+        flow.client
+          The IP that is the originator of the TCP session (if known,
+          otherwise 0)
+
+        flow.server
+          The IP that is the destination of the TCP session
+          session (if known, otherwise 0)
+
+    Methods available for Classifiers
+    ---------------------------------
+    (assumes class instantiated as an object called 'flow')
+
+        flow.max_packet_size()
+          Size of largest packet in the flow
+
+        flow.max_interpacket_interval()
+          TBD
+
+        flow.min_interpacket_interval()
+          TBD
 
     Challenges:
      - duplicate packets

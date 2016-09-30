@@ -3,8 +3,12 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to nmeta2dpae's documentation!
-======================================
+nmeta2dpae
+==========
+
+The nmeta2 project is a research platform for distributed scalable traffic
+classification on Software Defined Networking (SDN).
+`Read More <introduction.html>`_
 
 Contents:
 
