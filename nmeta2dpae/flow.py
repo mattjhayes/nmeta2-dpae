@@ -50,11 +50,20 @@ class Flow(object):
     Variables available for Classifiers (assumes class instantiated as
     an object called 'flow'):
 
-        # Variables for the current packet:
-        flow.ip_src         # IP source address of latest packet in flow
-        flow.ip_dst         # IP dest address of latest packet in flow
-        flow.tcp_src        # TCP source port of latest packet in flow
-        flow.tcp_dst        # TCP dest port of latest packet in flow
+        Variables for the current packet:
+        ---------------------------------
+        flow.ip_src
+          IP source address of latest packet in flow
+
+        flow.ip_dst
+          IP dest address of latest packet in flow
+
+        flow.tcp_src
+          TCP source port of latest packet in flow
+
+        flow.tcp_dst
+          TCP dest port of latest packet in flow
+
         flow.tcp_seq        # TCP sequence number of latest packet in flow
         flow.tcp_acq        # TCP acknowledgement number of latest
                             #  packet in flow
