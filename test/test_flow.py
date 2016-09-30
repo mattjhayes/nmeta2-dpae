@@ -303,8 +303,8 @@ def test_flow():
     assert flow.tcp_rst() == 1
     assert flow.tcp_psh() == 0
     assert flow.tcp_ack() == 1
-    assert flow.client == 0
-    assert flow.server == 0
+    assert flow.client == '10.1.0.2'
+    assert flow.server == '10.1.0.1'
     assert flow.packet_direction == 'c2s'
     assert flow.verified_direction == 0
 
