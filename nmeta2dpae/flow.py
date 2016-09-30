@@ -50,8 +50,8 @@ class Flow(object):
     Variables available for Classifiers (assumes class instantiated as
     an object called 'flow'):
 
-        Variables for the current packet:
-        ---------------------------------
+        **Variables for the current packet**:
+
         flow.ip_src
           IP source address of latest packet in flow
 
@@ -106,8 +106,7 @@ class Flow(object):
           IP of first packet and verified_direction set to 0 (i.e. 
           don't trust packet_direction unless verified_direction is set)
 
-        Variables for the whole flow
-        ----------------------------
+        **Variables for the whole flow**:
 
         flow.verified_direction
           Describes how the directionality of the flow was ascertained.
@@ -131,9 +130,8 @@ class Flow(object):
           The IP that is the destination of the TCP session
           session (if known, otherwise 0)
 
-    Methods available for Classifiers
-    ---------------------------------
-    (assumes class instantiated as an object called 'flow')
+        **Methods available for Classifiers**:
+        (assumes class instantiated as an object called 'flow')
 
         flow.max_packet_size()
           Size of largest packet in the flow
