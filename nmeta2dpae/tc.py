@@ -296,6 +296,11 @@ class TC(object):
             #*** DNS:
             self.logger.debug("Is it DNS?")
             dns = dpkt.dns.DNS(dns_data)
+            try:
+                dns = dpkt.dns.DNS(dns_data)
+            except dpkt.NeedData:
+                self.logger.debug("DNS packet no/invalid data")
+                return {}
             queries = dns.qd
             answers = dns.an
             detail1 = []
@@ -332,11 +337,11 @@ class TC(object):
                 result = {'type': 'id', 'subtype': 'dns', 'src_mac': eth_src,
                                                 'detail1': detail1}
             else:
-                result = 0
+                result = {}
             self.logger.debug("DNS result=%s", result)
             return result
         else:
-            return 0
+            return {}
 
     def _parse_dhcp(self, udp_data, eth_src):
         """
@@ -350,7 +355,7 @@ class TC(object):
                                                 'detail1': dhcp}
             return result
         else:
-            return 0
+            return {}
 
     def _parse_arp(self, eth, eth_src):
         """
@@ -372,9 +377,9 @@ class TC(object):
                                     'detail1': arp_details}
                 return result
             else:
-                return 0
+                return {}
         else:
-            return 0
+            return {}
 
     def _parse_lldp(self, pkt, eth_src):
         """
@@ -392,7 +397,7 @@ class TC(object):
                                     'detail1': system_name}
             return result
         else:
-            return 0
+            return {}
 
     def _parse_lldp_detail(self, lldpPayload):
         """
