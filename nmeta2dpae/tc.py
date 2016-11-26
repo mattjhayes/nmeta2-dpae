@@ -295,7 +295,6 @@ class TC(object):
         if self.id_dns:
             #*** DNS:
             self.logger.debug("Is it DNS?")
-            dns = dpkt.dns.DNS(dns_data)
             try:
                 dns = dpkt.dns.DNS(dns_data)
             except dpkt.NeedData:
